@@ -1,0 +1,23 @@
+# Generado por scripts/checkmk_inventory.py. No editar manualmente.
+all:
+  children:
+    dev:
+      hosts:
+        "cmk1":
+          ansible_host: "127.0.0.1"
+    exp:
+      hosts:
+        "cmk3":
+          ansible_host: "127.0.0.1"
+    linux:
+      hosts:
+        "cmk1":
+          ansible_host: "127.0.0.1"
+        "cmk2":
+          ansible_host: "127.0.0.1"
+        "cmk3":
+          ansible_host: "127.0.0.1"
+    pre:
+      hosts:
+        "cmk2":
+          ansible_host: "127.0.0.1"
