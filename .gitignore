@@ -1,2 +1,21 @@
 ansible-collection-checkmk.general/
+
+# Credenciales y configuración local
 .env
+
+# Cachés y entornos locales de Ansible
+.ansible/
+.vagrant/
+
+# Artefactos generados por el inventario y Ansible
+/inventory/checkmk_hosts.yml
+*.retry
+*.tar.gz
+
+# Cachés y bytecode de Python
+__pycache__/
+*.py[cod]
+
+# Temporales de editores y del sistema
+*.swp
+.DS_Store

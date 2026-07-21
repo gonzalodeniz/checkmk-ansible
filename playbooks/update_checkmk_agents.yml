@@ -1,0 +1,39 @@
+---
+# Actualiza agentes con el rol local checkmk.general.agent.
+# La selección se realiza con --limit en el lanzador:
+#   --limit linux       --limit dev       --limit cmk1
+#   --limit 'linux:&dev' (intersección de grupos)
+- name: "Actualizar agentes Checkmk desde el sitio configurado"
+  hosts: all
+  become: true
+  gather_facts: true
+  collections:
+    - checkmk.general
+  vars:
+    checkmk_agent_server_protocol: >-
+      {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('scheme') }}
+    checkmk_agent_server: >-
+      {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('hostname') }}
+    checkmk_agent_server_port: >-
+      {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('port') }}
+    checkmk_agent_site: "{{ lookup('ansible.builtin.env', 'CMK_SITE') }}"
+    checkmk_agent_user: "{{ lookup('ansible.builtin.env', 'CMK_USERNAME') }}"
+    checkmk_agent_pass: "{{ lookup('ansible.builtin.env', 'CMK_PASSWORD') }}"
+    checkmk_agent_server_validate_certs: >-
+      {{ lookup('ansible.builtin.env', 'CMK_VERIFY_TLS') | default('true', true) | bool }}
+    checkmk_agent_edition: >-
+      {{ lookup('ansible.builtin.env', 'CMK_AGENT_EDITION') | default('community', true) }}
+    checkmk_agent_version: >-
+      {{ lookup('checkmk.general.version',
+           server_url=lookup('ansible.builtin.env', 'CMK_URL'),
+           site=lookup('ansible.builtin.env', 'CMK_SITE'),
+           api_user=lookup('ansible.builtin.env', 'CMK_USERNAME'),
+           api_secret=lookup('ansible.builtin.env', 'CMK_PASSWORD'),
+           validate_certs=(lookup('ansible.builtin.env', 'CMK_VERIFY_TLS') | default('true', true) | bool)) }}
+    checkmk_agent_add_host: false
+    checkmk_agent_auto_activate: false
+    checkmk_agent_discover: false
+    checkmk_agent_update: false
+    checkmk_agent_no_log: true
+  roles:
+    - role: checkmk.general.agent
