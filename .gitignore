@@ -21,3 +21,4 @@ __pycache__/
 *.swp
 .DS_Store
 
+inventory/checkmk_hosts.yml
