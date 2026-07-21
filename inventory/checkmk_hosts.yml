@@ -1,23 +1,471 @@
 # Generado por scripts/checkmk_inventory.py. No editar manualmente.
 all:
   children:
+    antena:
+      hosts:
+        "AP_UB_OESTE":
+          ansible_host: "192.168.32.51"
+        "WIFI_MICRO":
+          ansible_host: "192.168.32.59"
     dev:
       hosts:
-        "cmk1":
-          ansible_host: "127.0.0.1"
+        "alfresco-dev.inerza.loc":
+          ansible_host: "192.168.48.16"
+        "jboss-dev.inerza.loc":
+          ansible_host: "192.168.48.14"
+        "postgresql-dev.inerza.loc":
+          ansible_host: "192.168.48.11"
+        "tomcat-dev.inerza.loc":
+          ansible_host: "192.168.48.13"
     exp:
       hosts:
-        "cmk3":
-          ansible_host: "127.0.0.1"
+        "AP_UB_OESTE":
+          ansible_host: "192.168.32.51"
+        "ImpresoraGC1":
+          ansible_host: "192.168.36.14"
+        "ImpresoraTF":
+          ansible_host: "192.168.70.200"
+        "alfresco.sestiba.loc":
+          ansible_host: "192.168.51.13"
+        "apps.inerza.loc":
+          ansible_host: "192.168.42.18"
+        "aspad2.aspain.loc":
+          ansible_host: "192.168.50.11"
+        "aspdns.inerza.loc":
+          ansible_host: "192.168.47.14"
+        "aspfs4.aspain.loc":
+          ansible_host: "192.168.50.12"
+        "aspsql2.aspain.loc":
+          ansible_host: "192.168.50.51"
+        "asptslaluz2.aspain.loc":
+          ansible_host: "192.168.49.11"
+        "bookstack-1.inerza.loc":
+          ansible_host: "192.168.42.29"
+        "checkmk2.inerza.loc":
+          ansible_host: "192.168.57.11"
+        "docker-dev2.inerza.loc":
+          ansible_host: "192.168.48.24"
+        "docker.inerza.loc":
+          ansible_host: "192.168.42.26"
+        "exchange.inerza.loc":
+          ansible_host: "192.168.45.11"
+        "ftp.inerza.loc":
+          ansible_host: "192.168.43.16"
+        "gitlab-1.inerza.loc":
+          ansible_host: "192.168.41.11"
+        "glpi.inerza.loc":
+          ansible_host: "192.168.67.11"
+        "izdsmc.inerza.loc":
+          ansible_host: "192.168.47.13"
+        "jenkins-sistemas.inerza.loc":
+          ansible_host: "192.168.57.13"
+        "jenkins.inerza.loc":
+          ansible_host: "192.168.41.17"
+        "mpsmonitor.inerza.loc":
+          ansible_host: "192.168.36.50"
+        "nexus.inerza.loc":
+          ansible_host: "192.168.41.13"
+        "nodejs.inerza.loc":
+          ansible_host: "192.168.43.17"
+        "ooda2.inerza.loc":
+          ansible_host: "192.168.53.12"
+        "openproject-1.inerza.loc":
+          ansible_host: "192.168.42.31"
+        "openproject.inerza.loc":
+          ansible_host: "192.168.42.13"
+        "otrs-1.inerza.loc":
+          ansible_host: "192.168.42.27"
+        "otstp.inerza.loc":
+          ansible_host: "192.168.41.22"
+        "pbx.inerza.loc":
+          ansible_host: "192.168.34.11"
+        "postgresql11-1-standby.inerza.loc":
+          ansible_host: "192.168.47.18"
+        "postgresql11-1.inerza.loc":
+          ansible_host: "192.168.47.17"
+        "postgresql12-dev.inerza.loc":
+          ansible_host: "192.168.48.23"
+        "proxy-devopsservers.inerza.loc":
+          ansible_host: "192.168.41.18"
+        "proxy-dmz.inerza.loc":
+          ansible_host: "192.168.43.201"
+        "proxy-servers.inerza.loc":
+          ansible_host: "192.168.42.201"
+        "qa-1.inerza.loc":
+          ansible_host: "192.168.41.26"
+        "qa.inerza.loc":
+          ansible_host: "192.168.41.12"
+        "sagep_tv.inerza.loc":
+          ansible_host: "172.25.0.50"
+        "sgpad1.sestiba.loc":
+          ansible_host: "192.168.52.11"
+        "sgpapp3.sestiba.loc":
+          ansible_host: "192.168.51.21"
+        "sgpapp4.sestiba.loc":
+          ansible_host: "192.168.51.22"
+        "sgpapp5.sestiba.loc":
+          ansible_host: "192.168.51.23"
+        "sgpdb.sestiba.loc":
+          ansible_host: "192.168.52.51"
+        "sgpfs1.sestiba.loc":
+          ansible_host: "192.168.52.12"
+        "sgpjenkins.sestiba.loc":
+          ansible_host: "192.168.51.24"
+        "sgpnginx.sestiba.loc":
+          ansible_host: "192.168.51.14"
+        "teampass.inerza.loc":
+          ansible_host: "192.168.42.14"
+        "unc.inerza.loc":
+          ansible_host: "192.168.32.253"
+    impacto_alto:
+      hosts:
+        "alfresco.sestiba.loc":
+          ansible_host: "192.168.51.13"
+        "docker.inerza.loc":
+          ansible_host: "192.168.42.26"
+        "gitlab-1.inerza.loc":
+          ansible_host: "192.168.41.11"
+        "jenkins-sistemas.inerza.loc":
+          ansible_host: "192.168.57.13"
+        "jenkins.inerza.loc":
+          ansible_host: "192.168.41.17"
+        "nexus.inerza.loc":
+          ansible_host: "192.168.41.13"
+        "otrs-1.inerza.loc":
+          ansible_host: "192.168.42.27"
+        "postgresql11-1-standby.inerza.loc":
+          ansible_host: "192.168.47.18"
+        "postgresql11-1.inerza.loc":
+          ansible_host: "192.168.47.17"
+        "postgresql12-dev.inerza.loc":
+          ansible_host: "192.168.48.23"
+        "postgresql12-pre.inerza.loc":
+          ansible_host: "192.168.44.18"
+        "proxy-devopsservers.inerza.loc":
+          ansible_host: "192.168.41.18"
+        "proxy-dmz.inerza.loc":
+          ansible_host: "192.168.43.201"
+        "proxy-dmz2pre.inerza.loc":
+          ansible_host: "192.168.43.13"
+        "proxy-servers.inerza.loc":
+          ansible_host: "192.168.42.201"
+        "sgpnginx.sestiba.loc":
+          ansible_host: "192.168.51.14"
+    impacto_bajo:
+      hosts:
+        "AP_UB_OESTE":
+          ansible_host: "192.168.32.51"
+        "ImpresoraGC1":
+          ansible_host: "192.168.36.14"
+        "ImpresoraTF":
+          ansible_host: "192.168.70.200"
+        "alfresco-dev.inerza.loc":
+          ansible_host: "192.168.48.16"
+        "alfresco-pre.inerza.loc":
+          ansible_host: "192.168.46.18"
+        "docker-dev2.inerza.loc":
+          ansible_host: "192.168.48.24"
+        "docker-pre.inerza.loc":
+          ansible_host: "192.168.46.19"
+        "docker-pre2.inerza.loc":
+          ansible_host: "192.168.46.40"
+        "ftp.inerza.loc":
+          ansible_host: "192.168.43.16"
+        "jboss-dev.inerza.loc":
+          ansible_host: "192.168.48.14"
+        "mysql-pre.inerza.loc":
+          ansible_host: "192.168.44.15"
+        "nodejs-pre.inerza.loc":
+          ansible_host: "192.168.46.22"
+        "nodejs.inerza.loc":
+          ansible_host: "192.168.43.17"
+        "ooda2.inerza.loc":
+          ansible_host: "192.168.53.12"
+        "otstp.inerza.loc":
+          ansible_host: "192.168.41.22"
+        "pbx.inerza.loc":
+          ansible_host: "192.168.34.11"
+        "postgresql-dev.inerza.loc":
+          ansible_host: "192.168.48.11"
+        "postgresql11-1-pre.inerza.loc":
+          ansible_host: "192.168.44.24"
+        "qa.inerza.loc":
+          ansible_host: "192.168.41.12"
+        "sagep_tv.inerza.loc":
+          ansible_host: "172.25.0.50"
+        "tftp.inerza.loc":
+          ansible_host: "192.168.32.231"
+        "tomcat-dev.inerza.loc":
+          ansible_host: "192.168.48.13"
+        "tomcat-pre.inerza.loc":
+          ansible_host: "192.168.46.16"
+    impacto_medio:
+      hosts:
+        "aspdns.inerza.loc":
+          ansible_host: "192.168.47.14"
+        "bookstack-1.inerza.loc":
+          ansible_host: "192.168.42.29"
+        "checkmk2.inerza.loc":
+          ansible_host: "192.168.57.11"
+        "glpi.inerza.loc":
+          ansible_host: "192.168.67.11"
+        "openproject-1.inerza.loc":
+          ansible_host: "192.168.42.31"
+        "openproject.inerza.loc":
+          ansible_host: "192.168.42.13"
+        "qa-1.inerza.loc":
+          ansible_host: "192.168.41.26"
+        "teampass.inerza.loc":
+          ansible_host: "192.168.42.14"
+        "tomcat.inerza.loc":
+          ansible_host: "192.168.42.19"
+        "unc.inerza.loc":
+          ansible_host: "192.168.32.253"
+    impacto_none:
+      hosts:
+        "apps.inerza.loc":
+          ansible_host: "192.168.42.18"
+        "aspad2.aspain.loc":
+          ansible_host: "192.168.50.11"
+        "aspfs4.aspain.loc":
+          ansible_host: "192.168.50.12"
+        "aspsql2.aspain.loc":
+          ansible_host: "192.168.50.51"
+        "asptslaluz2.aspain.loc":
+          ansible_host: "192.168.49.11"
+        "exchange.inerza.loc":
+          ansible_host: "192.168.45.11"
+        "izdsmc.inerza.loc":
+          ansible_host: "192.168.47.13"
+        "mpsmonitor.inerza.loc":
+          ansible_host: "192.168.36.50"
+        "sgpad1.sestiba.loc":
+          ansible_host: "192.168.52.11"
+        "sgpapp3.sestiba.loc":
+          ansible_host: "192.168.51.21"
+        "sgpapp4.sestiba.loc":
+          ansible_host: "192.168.51.22"
+        "sgpapp5.sestiba.loc":
+          ansible_host: "192.168.51.23"
+        "sgpdb.sestiba.loc":
+          ansible_host: "192.168.52.51"
+        "sgpfs1.sestiba.loc":
+          ansible_host: "192.168.52.12"
+        "sgpjenkins.sestiba.loc":
+          ansible_host: "192.168.51.24"
     linux:
       hosts:
-        "cmk1":
-          ansible_host: "127.0.0.1"
-        "cmk2":
-          ansible_host: "127.0.0.1"
-        "cmk3":
-          ansible_host: "127.0.0.1"
+        "alfresco-dev.inerza.loc":
+          ansible_host: "192.168.48.16"
+        "alfresco-pre.inerza.loc":
+          ansible_host: "192.168.46.18"
+        "checkmk2.inerza.loc":
+          ansible_host: "192.168.57.11"
+        "docker-dev2.inerza.loc":
+          ansible_host: "192.168.48.24"
+        "docker-pre.inerza.loc":
+          ansible_host: "192.168.46.19"
+        "docker-pre2.inerza.loc":
+          ansible_host: "192.168.46.40"
+        "gitlab-1.inerza.loc":
+          ansible_host: "192.168.41.11"
+        "glpi.inerza.loc":
+          ansible_host: "192.168.67.11"
+        "jboss-dev.inerza.loc":
+          ansible_host: "192.168.48.14"
+        "jenkins-sistemas.inerza.loc":
+          ansible_host: "192.168.57.13"
+        "mysql-pre.inerza.loc":
+          ansible_host: "192.168.44.15"
+        "nodejs-pre.inerza.loc":
+          ansible_host: "192.168.46.22"
+        "ooda2.inerza.loc":
+          ansible_host: "192.168.53.12"
+        "openproject-1.inerza.loc":
+          ansible_host: "192.168.42.31"
+        "otrs-1.inerza.loc":
+          ansible_host: "192.168.42.27"
+        "postgresql-dev.inerza.loc":
+          ansible_host: "192.168.48.11"
+        "postgresql11-1-pre.inerza.loc":
+          ansible_host: "192.168.44.24"
+        "postgresql12-dev.inerza.loc":
+          ansible_host: "192.168.48.23"
+        "postgresql12-pre.inerza.loc":
+          ansible_host: "192.168.44.18"
+        "qa-1.inerza.loc":
+          ansible_host: "192.168.41.26"
+        "teampass.inerza.loc":
+          ansible_host: "192.168.42.14"
+        "tomcat-dev.inerza.loc":
+          ansible_host: "192.168.48.13"
+        "tomcat-pre.inerza.loc":
+          ansible_host: "192.168.46.16"
+        "unc.inerza.loc":
+          ansible_host: "192.168.32.253"
     pre:
       hosts:
-        "cmk2":
-          ansible_host: "127.0.0.1"
+        "alfresco-pre.inerza.loc":
+          ansible_host: "192.168.46.18"
+        "docker-pre.inerza.loc":
+          ansible_host: "192.168.46.19"
+        "docker-pre2.inerza.loc":
+          ansible_host: "192.168.46.40"
+        "mysql-pre.inerza.loc":
+          ansible_host: "192.168.44.15"
+        "nodejs-pre.inerza.loc":
+          ansible_host: "192.168.46.22"
+        "postgresql11-1-pre.inerza.loc":
+          ansible_host: "192.168.44.24"
+        "postgresql12-pre.inerza.loc":
+          ansible_host: "192.168.44.18"
+        "tomcat-pre.inerza.loc":
+          ansible_host: "192.168.46.16"
+    printer:
+      hosts:
+        "ImpresoraGC1":
+          ansible_host: "192.168.36.14"
+        "ImpresoraTF":
+          ansible_host: "192.168.70.200"
+    server:
+      hosts:
+        "alfresco-dev.inerza.loc":
+          ansible_host: "192.168.48.16"
+        "alfresco-pre.inerza.loc":
+          ansible_host: "192.168.46.18"
+        "alfresco.sestiba.loc":
+          ansible_host: "192.168.51.13"
+        "apps.inerza.loc":
+          ansible_host: "192.168.42.18"
+        "aspad2.aspain.loc":
+          ansible_host: "192.168.50.11"
+        "aspdns.inerza.loc":
+          ansible_host: "192.168.47.14"
+        "aspfs4.aspain.loc":
+          ansible_host: "192.168.50.12"
+        "aspsql2.aspain.loc":
+          ansible_host: "192.168.50.51"
+        "asptslaluz2.aspain.loc":
+          ansible_host: "192.168.49.11"
+        "bookstack-1.inerza.loc":
+          ansible_host: "192.168.42.29"
+        "checkmk2.inerza.loc":
+          ansible_host: "192.168.57.11"
+        "docker-dev2.inerza.loc":
+          ansible_host: "192.168.48.24"
+        "docker-pre.inerza.loc":
+          ansible_host: "192.168.46.19"
+        "docker-pre2.inerza.loc":
+          ansible_host: "192.168.46.40"
+        "docker.inerza.loc":
+          ansible_host: "192.168.42.26"
+        "exchange.inerza.loc":
+          ansible_host: "192.168.45.11"
+        "ftp.inerza.loc":
+          ansible_host: "192.168.43.16"
+        "izdsmc.inerza.loc":
+          ansible_host: "192.168.47.13"
+        "jboss-dev.inerza.loc":
+          ansible_host: "192.168.48.14"
+        "jenkins-sistemas.inerza.loc":
+          ansible_host: "192.168.57.13"
+        "jenkins.inerza.loc":
+          ansible_host: "192.168.41.17"
+        "mpsmonitor.inerza.loc":
+          ansible_host: "192.168.36.50"
+        "mysql-pre.inerza.loc":
+          ansible_host: "192.168.44.15"
+        "nexus.inerza.loc":
+          ansible_host: "192.168.41.13"
+        "nodejs-pre.inerza.loc":
+          ansible_host: "192.168.46.22"
+        "nodejs.inerza.loc":
+          ansible_host: "192.168.43.17"
+        "ooda2.inerza.loc":
+          ansible_host: "192.168.53.12"
+        "openproject-1.inerza.loc":
+          ansible_host: "192.168.42.31"
+        "openproject.inerza.loc":
+          ansible_host: "192.168.42.13"
+        "otstp.inerza.loc":
+          ansible_host: "192.168.41.22"
+        "pbx.inerza.loc":
+          ansible_host: "192.168.34.11"
+        "postgresql-dev.inerza.loc":
+          ansible_host: "192.168.48.11"
+        "postgresql11-1-pre.inerza.loc":
+          ansible_host: "192.168.44.24"
+        "postgresql11-1-standby.inerza.loc":
+          ansible_host: "192.168.47.18"
+        "postgresql11-1.inerza.loc":
+          ansible_host: "192.168.47.17"
+        "postgresql12-dev.inerza.loc":
+          ansible_host: "192.168.48.23"
+        "postgresql12-pre.inerza.loc":
+          ansible_host: "192.168.44.18"
+        "proxy-dmz.inerza.loc":
+          ansible_host: "192.168.43.201"
+        "proxy-dmz2pre.inerza.loc":
+          ansible_host: "192.168.43.13"
+        "qa.inerza.loc":
+          ansible_host: "192.168.41.12"
+        "sagep_tv.inerza.loc":
+          ansible_host: "172.25.0.50"
+        "sgpad1.sestiba.loc":
+          ansible_host: "192.168.52.11"
+        "sgpapp3.sestiba.loc":
+          ansible_host: "192.168.51.21"
+        "sgpapp4.sestiba.loc":
+          ansible_host: "192.168.51.22"
+        "sgpapp5.sestiba.loc":
+          ansible_host: "192.168.51.23"
+        "sgpdb.sestiba.loc":
+          ansible_host: "192.168.52.51"
+        "sgpfs1.sestiba.loc":
+          ansible_host: "192.168.52.12"
+        "sgpjenkins.sestiba.loc":
+          ansible_host: "192.168.51.24"
+        "sgpnginx.sestiba.loc":
+          ansible_host: "192.168.51.14"
+        "teampass.inerza.loc":
+          ansible_host: "192.168.42.14"
+        "tftp.inerza.loc":
+          ansible_host: "192.168.32.231"
+        "tomcat-dev.inerza.loc":
+          ansible_host: "192.168.48.13"
+        "tomcat-pre.inerza.loc":
+          ansible_host: "192.168.46.16"
+        "tomcat.inerza.loc":
+          ansible_host: "192.168.42.19"
+        "unc.inerza.loc":
+          ansible_host: "192.168.32.253"
+    ubuntu:
+      hosts:
+        "bookstack-1.inerza.loc":
+          ansible_host: "192.168.42.29"
+        "docker-dev2.inerza.loc":
+          ansible_host: "192.168.48.24"
+        "gitlab-1.inerza.loc":
+          ansible_host: "192.168.41.11"
+        "glpi.inerza.loc":
+          ansible_host: "192.168.67.11"
+        "openproject-1.inerza.loc":
+          ansible_host: "192.168.42.31"
+        "otrs-1.inerza.loc":
+          ansible_host: "192.168.42.27"
+        "postgresql11-1-pre.inerza.loc":
+          ansible_host: "192.168.44.24"
+        "postgresql11-1-standby.inerza.loc":
+          ansible_host: "192.168.47.18"
+        "postgresql11-1.inerza.loc":
+          ansible_host: "192.168.47.17"
+        "proxy-devopsservers.inerza.loc":
+          ansible_host: "192.168.41.18"
+        "proxy-dmz.inerza.loc":
+          ansible_host: "192.168.43.201"
+        "proxy-dmz2pre.inerza.loc":
+          ansible_host: "192.168.43.13"
+        "proxy-servers.inerza.loc":
+          ansible_host: "192.168.42.201"
+        "qa-1.inerza.loc":
+          ansible_host: "192.168.41.26"

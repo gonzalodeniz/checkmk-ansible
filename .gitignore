@@ -8,8 +8,8 @@ ansible-collection-checkmk.general/
 .vagrant/
 
 # Artefactos generados por el inventario y Ansible
-/inventory/checkmk_hosts.yml
-/inventory/checkmk_plugins.yml
+inventory/checkmk_hosts.yml
+inventory/checkmk_plugins.yml
 *.retry
 *.tar.gz
 
@@ -20,3 +20,4 @@ __pycache__/
 # Temporales de editores y del sistema
 *.swp
 .DS_Store
+

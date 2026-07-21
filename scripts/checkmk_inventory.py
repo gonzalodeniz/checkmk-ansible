@@ -133,13 +133,19 @@ def group_name(value: Any, fallback: str) -> str:
     return normalized or fallback
 
 
-def host_groups(host: dict[str, Any], config: dict[str, str]) -> tuple[str, ...] | None:
-    """Obtiene los grupos de todos los tags de un host habilitado."""
+def is_enabled_host(host: dict[str, Any], config: dict[str, str]) -> bool:
+    """Indica si el host tiene habilitado el tag de gestión por Ansible."""
     attributes = attributes_for(host)
     enable_attribute = config.get("CMK_ENABLE_ATTRIBUTE", "tag_ansible_enable")
     enable_value = config.get("CMK_ENABLE_VALUE", "ansible_enable")
-    if attributes.get(enable_attribute) != enable_value:
+    return attributes.get(enable_attribute) == enable_value
+
+
+def host_groups(host: dict[str, Any], config: dict[str, str]) -> tuple[str, ...] | None:
+    """Obtiene los grupos de todos los tags de un host habilitado."""
+    if not is_enabled_host(host, config):
         return None
+    attributes = attributes_for(host)
     prefix = config.get("CMK_GROUP_ATTRIBUTE_PREFIX", "tag_ansible_group_")
     groups = {
         group_name(value, "")
@@ -204,7 +210,7 @@ def main() -> int:
         if isinstance(host.get("id"), str)
         and host.get("id")
         and host_ip(host)
-        and host_groups(host, config) is not None
+        and is_enabled_host(host, config)
     )
     print(f"Inventario escrito en {args.output} ({included}/{len(hosts)} hosts con IP).")
     return 0
