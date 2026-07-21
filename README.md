@@ -56,6 +56,17 @@ los filtros estándar de Ansible, por ejemplo `--limit linux`, `--limit cmk1` o
 scripts/update_checkmk_agents.sh --inventory /ruta/hosts.yml --limit linux
 ```
 
+### `scripts/register_checkmk_agents.sh`
+
+Registra los agentes de los hosts contra Checkmk mediante TLS, Agent Updater o
+ambos mecanismos. Admite `--limit` para grupos/hosts y `--dry-run`.
+
+```bash
+scripts/register_checkmk_agents.sh --dry-run --limit linux
+scripts/register_checkmk_agents.sh --mode tls --limit cmk1
+scripts/register_checkmk_agents.sh --mode update --limit dev
+```
+
 ### `scripts/collect_checkmk_plugins.sh`
 
 Busca los plugins del agente Checkmk instalados en cada host y genera
@@ -108,6 +119,7 @@ El fichero `.env` contiene secretos y no debe subirse al repositorio.
 | `CMK_GROUP_ATTRIBUTE_PREFIX` | Prefijo de tags que se convierten en grupos. Por defecto, `tag_ansible_group_`. |
 | `ANSIBLE_REMOTE_USER` | Usuario SSH remoto alternativo. Vacío usa el usuario habitual de Ansible/SSH. |
 | `ANSIBLE_PRIVATE_KEY_FILE` | Ruta a una clave privada SSH alternativa. Vacío usa la identidad habitual. |
+| `CMK_AGENT_REGISTER_MODE` | Modo de registro por defecto: `tls`, `update` o `both`. |
 
 Los valores de tags como `ansible_linux` o `ansible_dev` se convierten en los
 grupos `linux` y `dev`. Un host puede pertenecer a varios grupos.

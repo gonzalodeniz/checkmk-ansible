@@ -25,6 +25,18 @@ real, se puede revisar el alcance con `--list-hosts`. `--inventory RUTA` (o
 `-i RUTA`) sustituye `inventory/checkmk_hosts.yml`; admite inventarios YAML,
 INI o dinámicos que Ansible pueda leer.
 
+## Registrar agentes
+
+`scripts/register_checkmk_agents.sh` registra agentes mediante TLS (`tls`),
+Agent Updater (`update`) o ambos (`both`). `--dry-run` muestra el alcance sin
+ejecutar comandos en los hosts.
+
+```bash
+scripts/register_checkmk_agents.sh --dry-run --limit linux
+scripts/register_checkmk_agents.sh --mode tls --limit cmk1
+scripts/register_checkmk_agents.sh --mode both --limit dev
+```
+
 ## Descubrir plugins instalados
 
 El lanzador `scripts/collect_checkmk_plugins.sh` explora las rutas estándar de

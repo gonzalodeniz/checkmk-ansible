@@ -1,0 +1,64 @@
+---
+# Registra agentes contra el sitio Checkmk usando el rol de la colección.
+#
+# Parámetros:
+#   register_mode: tls, update o both.
+#   register_dry_run: simula sin ejecutar comandos de registro.
+#   --limit: selecciona grupos o hosts.
+# Requisitos: Ansible, colección local, .env, SSH y privilegios de elevación.
+- name: "Registrar agentes Checkmk"
+  hosts: all
+  become: true
+  gather_facts: true
+  collections:
+    - checkmk.general
+  vars:
+    register_mode: "{{ lookup('ansible.builtin.env', 'CMK_AGENT_REGISTER_MODE') | default('tls', true) }}"
+    register_dry_run: false
+    checkmk_agent_server_protocol: >-
+      {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('scheme') }}
+    checkmk_agent_server: >-
+      {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('hostname') }}
+    checkmk_agent_server_port: >-
+      {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('port') }}
+    checkmk_agent_site: "{{ lookup('ansible.builtin.env', 'CMK_SITE') }}"
+    checkmk_agent_user: "{{ lookup('ansible.builtin.env', 'CMK_USERNAME') }}"
+    checkmk_agent_pass: "{{ lookup('ansible.builtin.env', 'CMK_PASSWORD') }}"
+    checkmk_agent_server_validate_certs: >-
+      {{ lookup('ansible.builtin.env', 'CMK_VERIFY_TLS') | default('true', true) | bool }}
+    checkmk_agent_edition: >-
+      {{ lookup('ansible.builtin.env', 'CMK_AGENT_EDITION') | default('community', true) }}
+    checkmk_agent_tls: "{{ register_mode in ['tls', 'both'] }}"
+    checkmk_agent_update: "{{ register_mode in ['update', 'both'] }}"
+    checkmk_agent_add_host: false
+    checkmk_agent_discover: false
+    checkmk_agent_auto_activate: false
+    checkmk_agent_no_log: true
+  pre_tasks:
+    # Valida el modo antes de acceder a los hosts.
+    - name: "Validar modo de registro"
+      ansible.builtin.assert:
+        that: register_mode in ['tls', 'update', 'both']
+        fail_msg: "register_mode debe ser tls, update o both."
+
+    # El Agent Updater no está disponible para la edición Community.
+    - name: "Validar edición para Agent Updater"
+      ansible.builtin.assert:
+        that:
+          - register_mode not in ['update', 'both'] or checkmk_agent_edition | lower != 'community'
+        fail_msg: "El registro update requiere una edición comercial de Checkmk."
+
+    # El dry-run solo muestra qué registro se haría en cada host.
+    - name: "Simular registro"
+      ansible.builtin.debug:
+        msg: >-
+          DRY RUN: se registraría {{ inventory_hostname }} en
+          {{ register_mode }} contra {{ checkmk_agent_server }}/{{ checkmk_agent_site }}.
+      when: register_dry_run | bool
+
+  tasks:
+    # El rol ejecuta cmk-agent-ctl y/o cmk-update-agent según el modo.
+    - name: "Ejecutar registro mediante la colección"
+      ansible.builtin.include_role:
+        name: checkmk.general.agent
+      when: not register_dry_run | bool
