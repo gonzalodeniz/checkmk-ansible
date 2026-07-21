@@ -25,6 +25,33 @@ real, se puede revisar el alcance con `--list-hosts`. `--inventory RUTA` (o
 `-i RUTA`) sustituye `inventory/checkmk_hosts.yml`; admite inventarios YAML,
 INI o dinámicos que Ansible pueda leer.
 
+## Descubrir plugins instalados
+
+El lanzador `scripts/collect_checkmk_plugins.sh` explora las rutas estándar de
+plugins del agente en Linux y Windows y genera
+`inventory/checkmk_plugins.yml`. Incluye nombre, ruta y checksum SHA-256 por
+host para que otro playbook pueda identificar plugins instalados y actualizarlos.
+
+```bash
+scripts/collect_checkmk_plugins.sh
+scripts/collect_checkmk_plugins.sh --limit linux
+scripts/collect_checkmk_plugins.sh --output /ruta/plugins.yml
+```
+
+## Actualizar plugins
+
+`scripts/update_checkmk_plugins.sh` descarga plugins desde Checkmk y los copia
+en los hosts seleccionados. Por defecto usa `inventory/checkmk_plugins.yml`;
+`--plugin` permite indicar uno o varios plugins sin manifiesto. `--limit`
+acepta grupos o hosts individuales y `--dry-run` no modifica los hosts.
+
+```bash
+scripts/update_checkmk_plugins.sh --dry-run --limit linux
+scripts/update_checkmk_plugins.sh --limit cmk1
+scripts/update_checkmk_plugins.sh --plugin mk_logwatch.py --limit linux
+scripts/update_checkmk_plugins.sh --inventory /ruta/hosts.yml --manifest /ruta/plugins.yml --dry-run
+```
+
 ## Usuario y clave SSH alternativos
 
 El usuario que ejecuta el script no tiene que ser el usuario remoto. Define

@@ -56,6 +56,40 @@ los filtros estándar de Ansible, por ejemplo `--limit linux`, `--limit cmk1` o
 scripts/update_checkmk_agents.sh --inventory /ruta/hosts.yml --limit linux
 ```
 
+### `scripts/collect_checkmk_plugins.sh`
+
+Busca los plugins del agente Checkmk instalados en cada host y genera
+`inventory/checkmk_plugins.yml`. El manifiesto contiene el nombre, ruta,
+checksum y otros metadatos de cada plugin, para que un proceso de actualización
+posterior pueda decidir qué plugins debe actualizar.
+
+```bash
+scripts/collect_checkmk_plugins.sh
+scripts/collect_checkmk_plugins.sh --limit linux
+scripts/collect_checkmk_plugins.sh --output /ruta/plugins.yml
+```
+
+### `scripts/update_checkmk_plugins.sh`
+
+Actualiza los plugins incluidos en `inventory/checkmk_plugins.yml` desde el
+sitio Checkmk. También permite copiar plugins concretos sin usar el manifiesto.
+Usa `--dry-run` antes de una actualización real.
+
+```bash
+# Simular la actualización de todos los plugins del grupo linux
+scripts/update_checkmk_plugins.sh --dry-run --limit linux
+
+# Actualizar según el manifiesto, solo en un host
+scripts/update_checkmk_plugins.sh --limit cmk1
+
+# Copiar uno o varios plugins concretos
+scripts/update_checkmk_plugins.sh --plugin mk_logwatch.py --limit linux
+scripts/update_checkmk_plugins.sh --plugin mk_mysql --plugin mk_logwatch.py --limit dev
+
+# Usar manifiesto e inventario alternativos
+scripts/update_checkmk_plugins.sh --inventory /ruta/hosts.yml --manifest /ruta/plugins.yml --dry-run
+```
+
 ## Configuración `.env`
 
 El fichero `.env` contiene secretos y no debe subirse al repositorio.
@@ -67,6 +101,8 @@ El fichero `.env` contiene secretos y no debe subirse al repositorio.
 | `CMK_USERNAME` | Usuario utilizado para consultar la API y descargar el agente. |
 | `CMK_PASSWORD` | Contraseña o secreto de ese usuario. |
 | `CMK_VERIFY_TLS` | Verifica certificados TLS (`true`/`false`). Para HTTP local suele ser `false`. |
+| `CMK_PLUGIN_STANDARD_URL` | URL base opcional para plugins estándar. Vacía: se deriva de `CMK_URL` y `CMK_SITE`. |
+| `CMK_PLUGIN_LOCAL_URL` | URL base opcional para plugins locales. Vacía: se deriva de `CMK_URL` y `CMK_SITE`. |
 | `CMK_ENABLE_ATTRIBUTE` | Tag que controla la inclusión del host en el inventario. Por defecto, `tag_ansible_enable`. |
 | `CMK_ENABLE_VALUE` | Valor que habilita la inclusión. Por defecto, `ansible_enable`. |
 | `CMK_GROUP_ATTRIBUTE_PREFIX` | Prefijo de tags que se convierten en grupos. Por defecto, `tag_ansible_group_`. |
@@ -78,7 +114,8 @@ grupos `linux` y `dev`. Un host puede pertenecer a varios grupos.
 
 ## Inventarios y seguridad
 
-`inventory/checkmk_hosts.yml` es un artefacto generado y está excluido de Git.
+`inventory/checkmk_hosts.yml` y `inventory/checkmk_plugins.yml` son artefactos
+generados y están excluidos de Git.
 Si se utiliza un inventario alternativo, debe ser legible por Ansible y contener
 los grupos/hosts que se quieran actualizar. No compartas `.env`, claves
 privadas ni contraseñas.

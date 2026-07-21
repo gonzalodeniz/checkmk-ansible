@@ -1,0 +1,290 @@
+---
+# Actualiza plugins de agentes desde el sitio Checkmk. Por defecto consume el
+# manifiesto producido por collect_checkmk_plugins.yml; también acepta una lista
+# explícita de nombres mediante plugin_update_names.
+- name: "Actualizar plugins Checkmk en hosts gestionados"
+  hosts: all
+  become: true
+  gather_facts: true
+  ignore_unreachable: true
+  vars:
+    plugin_update_mode: manifest
+    plugin_manifest_file: "{{ playbook_dir }}/../inventory/checkmk_plugins.yml"
+    plugin_update_names: []
+    plugin_update_target_dir: ''
+    plugin_update_dry_run: false
+    plugin_update_source: auto
+    checkmk_plugin_standard_url: >-
+      {{ lookup('ansible.builtin.env', 'CMK_PLUGIN_STANDARD_URL')
+         | default(
+           lookup('ansible.builtin.env', 'CMK_URL') ~ '/'
+           ~ lookup('ansible.builtin.env', 'CMK_SITE') ~ '/check_mk/agents',
+           true) }}
+    checkmk_plugin_local_url: >-
+      {{ lookup('ansible.builtin.env', 'CMK_PLUGIN_LOCAL_URL')
+         | default(
+           lookup('ansible.builtin.env', 'CMK_URL') ~ '/'
+           ~ lookup('ansible.builtin.env', 'CMK_SITE') ~ '/check_mk/local/agents',
+           true) }}
+    checkmk_plugin_headers:
+      Authorization: >-
+        Bearer {{ lookup('ansible.builtin.env', 'CMK_USERNAME') }}
+        {{ lookup('ansible.builtin.env', 'CMK_PASSWORD') }}
+      Accept: application/octet-stream
+    checkmk_plugin_validate_certs: >-
+      {{ lookup('ansible.builtin.env', 'CMK_VERIFY_TLS') | default('true', true) | bool }}
+  pre_tasks:
+    - name: "Validar origen de plugins"
+      ansible.builtin.assert:
+        that: plugin_update_source in ['auto', 'standard', 'local']
+        fail_msg: "plugin_update_source debe ser auto, standard o local."
+
+    - name: "Comprobar manifiesto de plugins"
+      ansible.builtin.stat:
+        path: "{{ plugin_manifest_file }}"
+      delegate_to: localhost
+      become: false
+      register: __checkmk_plugin_manifest_file
+      when: plugin_update_mode == 'manifest'
+
+    - name: "Exigir manifiesto existente"
+      ansible.builtin.assert:
+        that: __checkmk_plugin_manifest_file.stat.exists
+        fail_msg: >-
+          No existe {{ plugin_manifest_file }}. Ejecuta primero
+          scripts/collect_checkmk_plugins.sh o usa --plugin.
+      when: plugin_update_mode == 'manifest'
+
+    - name: "Cargar manifiesto de plugins"
+      ansible.builtin.include_vars:
+        file: "{{ plugin_manifest_file }}"
+        name: __checkmk_plugin_manifest
+      delegate_to: localhost
+      become: false
+      when: plugin_update_mode == 'manifest'
+
+    - name: "Seleccionar plugins desde el manifiesto"
+      ansible.builtin.set_fact:
+        checkmk_plugin_update_items: >-
+          {{ (__checkmk_plugin_manifest.hosts | default({}))
+             .get(inventory_hostname, {})
+             .get('plugins', []) }}
+      when: plugin_update_mode == 'manifest'
+
+    - name: "Definir directorio destino para plugins explícitos"
+      ansible.builtin.set_fact:
+        __checkmk_plugin_target_dir: >-
+          {{ plugin_update_target_dir if plugin_update_target_dir | length > 0 else
+             ('C:\\ProgramData\\checkmk\\agent\\plugins'
+              if ansible_facts.system == 'Win32NT'
+              else '/usr/lib/check_mk_agent/plugins') }}
+      when: plugin_update_mode == 'explicit'
+
+    - name: "Seleccionar plugins explícitos"
+      ansible.builtin.set_fact:
+        checkmk_plugin_update_items: >-
+          {%- set plugins = [] -%}
+          {%- set separator = '\\' if ansible_facts.system == 'Win32NT' else '/' -%}
+          {%- for name in plugin_update_names -%}
+          {%-   set _ = plugins.append({
+                 'name': name,
+                 'path': __checkmk_plugin_target_dir | regex_replace('[\\\\/]$', '') ~ separator ~ name
+               }) -%}
+          {%- endfor -%}
+          {{ plugins }}
+      when: plugin_update_mode == 'explicit'
+
+    - name: "Informar cuando no hay plugins seleccionados"
+      ansible.builtin.debug:
+        msg: "No hay plugins que actualizar para {{ inventory_hostname }}."
+      when: checkmk_plugin_update_items | default([]) | length == 0
+
+  tasks:
+    - name: "Simular actualización de plugins"
+      ansible.builtin.debug:
+        msg: >-
+          DRY RUN: se actualizaría {{ item.name }} en {{ item.path }} desde
+          {{ checkmk_plugin_standard_url }} o {{ checkmk_plugin_local_url }}.
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: plugin_update_dry_run | bool
+
+    - name: "Linux: crear directorios destino"
+      ansible.builtin.file:
+        path: "{{ item.path | dirname }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.path }}"
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_update_dry_run | bool
+
+    - name: "Linux: descargar plugins estándar"
+      ansible.builtin.get_url:
+        url: "{{ checkmk_plugin_standard_url }}/plugins/{{ item.name }}"
+        dest: "{{ item.path }}.checkmk-download"
+        headers: "{{ checkmk_plugin_headers }}"
+        validate_certs: "{{ checkmk_plugin_validate_certs }}"
+        force: true
+        mode: '0755'
+      register: __checkmk_linux_standard_download
+      failed_when: false
+      no_log: true
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_update_dry_run | bool
+        - plugin_update_source in ['auto', 'standard']
+
+    - name: "Linux: descargar plugins locales como alternativa"
+      ansible.builtin.get_url:
+        url: "{{ checkmk_plugin_local_url }}/plugins/{{ item.name }}"
+        dest: "{{ item.path }}.checkmk-download"
+        headers: "{{ checkmk_plugin_headers }}"
+        validate_certs: "{{ checkmk_plugin_validate_certs }}"
+        force: true
+        mode: '0755'
+      register: __checkmk_linux_local_download
+      failed_when: false
+      no_log: true
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+        extended: true
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_update_dry_run | bool
+        - plugin_update_source == 'local' or
+          (plugin_update_source == 'auto' and
+           (__checkmk_linux_standard_download.results[ansible_loop.index0].failed | default(false)))
+
+    - name: "Linux: instalar plugins descargados"
+      ansible.builtin.copy:
+        src: "{{ item.path }}.checkmk-download"
+        dest: "{{ item.path }}"
+        remote_src: true
+        mode: '0755'
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+        extended: true
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_update_dry_run | bool
+        - (__checkmk_linux_standard_download is defined and
+           not (__checkmk_linux_standard_download.results[ansible_loop.index0].failed | default(false))) or
+          (__checkmk_linux_local_download is defined and
+           not (__checkmk_linux_local_download.results[ansible_loop.index0].failed | default(false)))
+
+    - name: "Linux: fallar si el plugin no se descargó"
+      ansible.builtin.fail:
+        msg: "No se pudo descargar {{ item.name }} desde las rutas configuradas de Checkmk."
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+        extended: true
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_update_dry_run | bool
+        - (__checkmk_linux_standard_download is not defined or
+           __checkmk_linux_standard_download.results[ansible_loop.index0].failed | default(true))
+        - (__checkmk_linux_local_download is not defined or
+           __checkmk_linux_local_download.results[ansible_loop.index0].failed | default(true))
+
+    - name: "Linux: eliminar descargas temporales"
+      ansible.builtin.file:
+        path: "{{ item.path }}.checkmk-download"
+        state: absent
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_update_dry_run | bool
+
+    - name: "Windows: descargar plugins estándar"
+      ansible.windows.win_get_url:
+        url: "{{ checkmk_plugin_standard_url }}/windows/plugins/{{ item.name }}"
+        dest: "{{ item.path }}.checkmk-download"
+        headers: "{{ checkmk_plugin_headers }}"
+        validate_certs: "{{ checkmk_plugin_validate_certs }}"
+        force: true
+      register: __checkmk_windows_standard_download
+      failed_when: false
+      no_log: true
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - ansible_facts.system == 'Win32NT'
+        - not plugin_update_dry_run | bool
+        - plugin_update_source in ['auto', 'standard']
+
+    - name: "Windows: descargar plugins locales como alternativa"
+      ansible.windows.win_get_url:
+        url: "{{ checkmk_plugin_local_url }}/windows/plugins/{{ item.name }}"
+        dest: "{{ item.path }}.checkmk-download"
+        headers: "{{ checkmk_plugin_headers }}"
+        validate_certs: "{{ checkmk_plugin_validate_certs }}"
+        force: true
+      register: __checkmk_windows_local_download
+      failed_when: false
+      no_log: true
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+        extended: true
+      when:
+        - ansible_facts.system == 'Win32NT'
+        - not plugin_update_dry_run | bool
+        - plugin_update_source == 'local' or
+          (plugin_update_source == 'auto' and
+           (__checkmk_windows_standard_download.results[ansible_loop.index0].failed | default(false)))
+
+    - name: "Windows: instalar plugins descargados"
+      ansible.windows.win_copy:
+        src: "{{ item.path }}.checkmk-download"
+        dest: "{{ item.path }}"
+        remote_src: true
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+        extended: true
+      when:
+        - ansible_facts.system == 'Win32NT'
+        - not plugin_update_dry_run | bool
+        - (__checkmk_windows_standard_download is defined and
+           not (__checkmk_windows_standard_download.results[ansible_loop.index0].failed | default(false))) or
+          (__checkmk_windows_local_download is defined and
+           not (__checkmk_windows_local_download.results[ansible_loop.index0].failed | default(false)))
+
+    - name: "Windows: fallar si el plugin no se descargó"
+      ansible.builtin.fail:
+        msg: "No se pudo descargar {{ item.name }} desde las rutas configuradas de Checkmk."
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+        extended: true
+      when:
+        - ansible_facts.system == 'Win32NT'
+        - not plugin_update_dry_run | bool
+        - (__checkmk_windows_standard_download is not defined or
+           __checkmk_windows_standard_download.results[ansible_loop.index0].failed | default(true))
+        - (__checkmk_windows_local_download is not defined or
+           __checkmk_windows_local_download.results[ansible_loop.index0].failed | default(true))
+
+    - name: "Windows: eliminar descargas temporales"
+      ansible.windows.win_file:
+        path: "{{ item.path }}.checkmk-download"
+        state: absent
+      loop: "{{ checkmk_plugin_update_items | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - ansible_facts.system == 'Win32NT'
+        - not plugin_update_dry_run | bool

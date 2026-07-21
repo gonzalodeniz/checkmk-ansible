@@ -1,0 +1,143 @@
+---
+# Recopila los plugins de agente instalados en cada host y crea un manifiesto
+# YAML en el controlador. Las rutas se pueden sobrescribir con -e.
+- name: "Recopilar plugins instalados de Checkmk"
+  hosts: all
+  gather_facts: true
+  ignore_unreachable: true
+  vars:
+    checkmk_linux_plugin_paths:
+      - /usr/lib/check_mk_agent/plugins
+      - /usr/local/lib/check_mk_agent/plugins
+    checkmk_windows_plugin_paths:
+      - C:\ProgramData\checkmk\agent\plugins
+  tasks:
+    - name: "Inicializar resultado de plugins"
+      ansible.builtin.set_fact:
+        checkmk_plugin_scan_status: unsupported_os
+        checkmk_plugin_scan_paths: []
+        checkmk_installed_plugins: []
+
+    - name: "Linux: comprobar directorios de plugins"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ checkmk_linux_plugin_paths }}"
+      register: __checkmk_linux_plugin_paths
+      when: ansible_facts.system == 'Linux'
+
+    - name: "Linux: buscar plugins instalados"
+      ansible.builtin.find:
+        paths: >-
+          {{ __checkmk_linux_plugin_paths.results
+             | selectattr('stat.exists')
+             | map(attribute='item')
+             | list }}
+        file_type: file
+        recurse: true
+        get_checksum: true
+        checksum_algorithm: sha256
+      register: __checkmk_linux_plugins
+      when:
+        - ansible_facts.system == 'Linux'
+        - __checkmk_linux_plugin_paths.results
+          | selectattr('stat.exists')
+          | list
+          | length > 0
+
+    - name: "Linux: registrar plugins"
+      ansible.builtin.set_fact:
+        checkmk_plugin_scan_status: complete
+        checkmk_plugin_scan_paths: >-
+          {{ __checkmk_linux_plugin_paths.results
+             | selectattr('stat.exists')
+             | map(attribute='item')
+             | list }}
+        checkmk_installed_plugins: >-
+          {%- set plugins = [] -%}
+          {%- for file in __checkmk_linux_plugins.files | default([]) -%}
+          {%-   set _ = plugins.append({
+                 'name': file.path | basename,
+                 'path': file.path,
+                 'checksum_sha256': file.checksum | default(''),
+                 'size': file.size,
+                 'modified': file.mtime
+               }) -%}
+          {%- endfor -%}
+          {{ plugins }}
+      when: ansible_facts.system == 'Linux'
+
+    - name: "Windows: comprobar directorios de plugins"
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ checkmk_windows_plugin_paths }}"
+      register: __checkmk_windows_plugin_paths
+      when: ansible_facts.system == 'Win32NT'
+
+    - name: "Windows: buscar plugins instalados"
+      ansible.windows.win_find:
+        paths: >-
+          {{ __checkmk_windows_plugin_paths.results
+             | selectattr('stat.exists')
+             | map(attribute='item')
+             | list }}
+        file_type: file
+        recurse: true
+        get_checksum: true
+        checksum_algorithm: sha256
+      register: __checkmk_windows_plugins
+      when:
+        - ansible_facts.system == 'Win32NT'
+        - __checkmk_windows_plugin_paths.results
+          | selectattr('stat.exists')
+          | list
+          | length > 0
+
+    - name: "Windows: registrar plugins"
+      ansible.builtin.set_fact:
+        checkmk_plugin_scan_status: complete
+        checkmk_plugin_scan_paths: >-
+          {{ __checkmk_windows_plugin_paths.results
+             | selectattr('stat.exists')
+             | map(attribute='item')
+             | list }}
+        checkmk_installed_plugins: >-
+          {%- set plugins = [] -%}
+          {%- for file in __checkmk_windows_plugins.files | default([]) -%}
+          {%-   set _ = plugins.append({
+                 'name': file.filename,
+                 'path': file.path,
+                 'checksum_sha256': file.checksum | default(''),
+                 'size': file.size,
+                 'modified': file.lastwritetime | default('')
+               }) -%}
+          {%- endfor -%}
+          {{ plugins }}
+      when: ansible_facts.system == 'Win32NT'
+
+- name: "Guardar manifiesto de plugins en el controlador"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    plugin_manifest_output: "{{ playbook_dir }}/../inventory/checkmk_plugins.yml"
+  tasks:
+    - name: "Crear directorio de salida"
+      ansible.builtin.file:
+        path: "{{ plugin_manifest_output | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: "Escribir manifiesto de plugins"
+      ansible.builtin.copy:
+        dest: "{{ plugin_manifest_output }}"
+        mode: '0600'
+        content: |-
+          schema_version: 1
+          hosts:
+          {% for host in groups['all'] | sort %}
+            {{ host | to_json }}:
+              scan_status: {{ hostvars[host].checkmk_plugin_scan_status | default('unreachable') | to_json }}
+              system: {{ (hostvars[host].ansible_facts | default({})).get('system', 'unknown') | to_json }}
+              scan_paths: {{ hostvars[host].checkmk_plugin_scan_paths | default([]) | to_json }}
+              plugins:
+          {{ hostvars[host].checkmk_installed_plugins | default([]) | to_nice_yaml(indent=2, sort_keys=false) | indent(8, true) }}
+          {% endfor %}
