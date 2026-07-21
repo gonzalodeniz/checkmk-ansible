@@ -1,7 +1,16 @@
 ---
-# Actualiza plugins de agentes desde el sitio Checkmk. Por defecto consume el
-# manifiesto producido por collect_checkmk_plugins.yml; también acepta una lista
-# explícita de nombres mediante plugin_update_names.
+# Actualiza plugins de agentes desde el sitio Checkmk.
+#
+# Parámetros:
+#   plugin_update_mode: manifest o explicit.
+#   plugin_manifest_file: ruta del manifiesto.
+#   plugin_update_names: lista de plugins explícitos.
+#   plugin_update_target_dir: directorio destino explícito.
+#   plugin_update_source: auto, standard o local.
+#   plugin_update_dry_run: simula sin modificar hosts.
+#   --limit: selecciona grupos o hosts.
+# Requisitos: Ansible, .env, inventario, acceso SSH y permisos de escritura.
+# El script update_checkmk_plugins.sh prepara estas variables automáticamente.
 - name: "Actualizar plugins Checkmk en hosts gestionados"
   hosts: all
   become: true
@@ -34,11 +43,13 @@
     checkmk_plugin_validate_certs: >-
       {{ lookup('ansible.builtin.env', 'CMK_VERIFY_TLS') | default('true', true) | bool }}
   pre_tasks:
+    # Evita usar un origen de descarga no soportado por el playbook.
     - name: "Validar origen de plugins"
       ansible.builtin.assert:
         that: plugin_update_source in ['auto', 'standard', 'local']
         fail_msg: "plugin_update_source debe ser auto, standard o local."
 
+    # Verifica el manifiesto solo cuando no se han pasado nombres explícitos.
     - name: "Comprobar manifiesto de plugins"
       ansible.builtin.stat:
         path: "{{ plugin_manifest_file }}"
@@ -47,6 +58,7 @@
       register: __checkmk_plugin_manifest_file
       when: plugin_update_mode == 'manifest'
 
+    # Da un error temprano y claro si falta el fichero requerido.
     - name: "Exigir manifiesto existente"
       ansible.builtin.assert:
         that: __checkmk_plugin_manifest_file.stat.exists
@@ -55,6 +67,7 @@
           scripts/collect_checkmk_plugins.sh o usa --plugin.
       when: plugin_update_mode == 'manifest'
 
+    # Carga el YAML en el controlador para consultarlo por host.
     - name: "Cargar manifiesto de plugins"
       ansible.builtin.include_vars:
         file: "{{ plugin_manifest_file }}"
@@ -63,6 +76,7 @@
       become: false
       when: plugin_update_mode == 'manifest'
 
+    # Selecciona únicamente los plugins registrados para este host.
     - name: "Seleccionar plugins desde el manifiesto"
       ansible.builtin.set_fact:
         checkmk_plugin_update_items: >-
@@ -71,6 +85,7 @@
              .get('plugins', []) }}
       when: plugin_update_mode == 'manifest'
 
+    # Calcula el directorio estándar o el indicado por el usuario.
     - name: "Definir directorio destino para plugins explícitos"
       ansible.builtin.set_fact:
         __checkmk_plugin_target_dir: >-
@@ -80,6 +95,7 @@
               else '/usr/lib/check_mk_agent/plugins') }}
       when: plugin_update_mode == 'explicit'
 
+    # Convierte los nombres recibidos en elementos con ruta de destino.
     - name: "Seleccionar plugins explícitos"
       ansible.builtin.set_fact:
         checkmk_plugin_update_items: >-
@@ -94,12 +110,14 @@
           {{ plugins }}
       when: plugin_update_mode == 'explicit'
 
+    # No falla: un host sin plugins puede ser un resultado válido.
     - name: "Informar cuando no hay plugins seleccionados"
       ansible.builtin.debug:
         msg: "No hay plugins que actualizar para {{ inventory_hostname }}."
       when: checkmk_plugin_update_items | default([]) | length == 0
 
   tasks:
+    # Dry-run informa de las operaciones sin descargar ni escribir archivos.
     - name: "Simular actualización de plugins"
       ansible.builtin.debug:
         msg: >-
@@ -110,6 +128,7 @@
         label: "{{ item.name }}"
       when: plugin_update_dry_run | bool
 
+    # Prepara el directorio Linux donde se instalarán los plugins.
     - name: "Linux: crear directorios destino"
       ansible.builtin.file:
         path: "{{ item.path | dirname }}"
@@ -122,6 +141,7 @@
         - ansible_facts.system == 'Linux'
         - not plugin_update_dry_run | bool
 
+    # Intenta primero el catálogo estándar de plugins de Checkmk.
     - name: "Linux: descargar plugins estándar"
       ansible.builtin.get_url:
         url: "{{ checkmk_plugin_standard_url }}/plugins/{{ item.name }}"
@@ -141,6 +161,7 @@
         - not plugin_update_dry_run | bool
         - plugin_update_source in ['auto', 'standard']
 
+    # Usa el catálogo local cuando el estándar no contiene el plugin.
     - name: "Linux: descargar plugins locales como alternativa"
       ansible.builtin.get_url:
         url: "{{ checkmk_plugin_local_url }}/plugins/{{ item.name }}"
@@ -163,6 +184,7 @@
           (plugin_update_source == 'auto' and
            (__checkmk_linux_standard_download.results[ansible_loop.index0].failed | default(false)))
 
+    # Sustituye el plugin solo después de una descarga válida.
     - name: "Linux: instalar plugins descargados"
       ansible.builtin.copy:
         src: "{{ item.path }}.checkmk-download"
@@ -181,6 +203,7 @@
           (__checkmk_linux_local_download is defined and
            not (__checkmk_linux_local_download.results[ansible_loop.index0].failed | default(false)))
 
+    # Evita informar éxito si ninguna fuente devolvió el archivo.
     - name: "Linux: fallar si el plugin no se descargó"
       ansible.builtin.fail:
         msg: "No se pudo descargar {{ item.name }} desde las rutas configuradas de Checkmk."
@@ -196,6 +219,7 @@
         - (__checkmk_linux_local_download is not defined or
            __checkmk_linux_local_download.results[ansible_loop.index0].failed | default(true))
 
+    # Elimina el archivo temporal después de la instalación.
     - name: "Linux: eliminar descargas temporales"
       ansible.builtin.file:
         path: "{{ item.path }}.checkmk-download"
@@ -207,6 +231,7 @@
         - ansible_facts.system == 'Linux'
         - not plugin_update_dry_run | bool
 
+    # Descarga la variante Windows del catálogo estándar.
     - name: "Windows: descargar plugins estándar"
       ansible.windows.win_get_url:
         url: "{{ checkmk_plugin_standard_url }}/windows/plugins/{{ item.name }}"
@@ -225,6 +250,7 @@
         - not plugin_update_dry_run | bool
         - plugin_update_source in ['auto', 'standard']
 
+    # Prueba la ruta local para plugins instalados mediante extensiones.
     - name: "Windows: descargar plugins locales como alternativa"
       ansible.windows.win_get_url:
         url: "{{ checkmk_plugin_local_url }}/windows/plugins/{{ item.name }}"
@@ -246,6 +272,7 @@
           (plugin_update_source == 'auto' and
            (__checkmk_windows_standard_download.results[ansible_loop.index0].failed | default(false)))
 
+    # Copia el archivo descargado al directorio del agente Windows.
     - name: "Windows: instalar plugins descargados"
       ansible.windows.win_copy:
         src: "{{ item.path }}.checkmk-download"
@@ -263,6 +290,7 @@
           (__checkmk_windows_local_download is defined and
            not (__checkmk_windows_local_download.results[ansible_loop.index0].failed | default(false)))
 
+    # Informa de forma explícita cuando ambas fuentes fallan.
     - name: "Windows: fallar si el plugin no se descargó"
       ansible.builtin.fail:
         msg: "No se pudo descargar {{ item.name }} desde las rutas configuradas de Checkmk."
@@ -278,6 +306,7 @@
         - (__checkmk_windows_local_download is not defined or
            __checkmk_windows_local_download.results[ansible_loop.index0].failed | default(true))
 
+    # Limpia el archivo temporal de Windows.
     - name: "Windows: eliminar descargas temporales"
       ansible.windows.win_file:
         path: "{{ item.path }}.checkmk-download"

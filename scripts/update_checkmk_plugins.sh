@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 # Actualiza plugins de agentes Checkmk desde el sitio configurado.
+#
+# Parámetros:
+#   --inventory: inventario Ansible alternativo.
+#   --manifest: manifiesto de plugins alternativo.
+#   --plugin: plugin explícito; se puede repetir.
+#   --target-dir: directorio destino para plugins explícitos.
+#   --dry-run: simula la actualización sin modificar hosts.
+#   opciones de ansible-playbook: por ejemplo --limit.
+# Requisitos: .env, Ansible, colección local, inventario y acceso SSH con
+# privilegios de escritura.
 
 set -euo pipefail
 
@@ -16,6 +26,7 @@ ANSIBLE_ARGS=()
 DRY_RUN=false
 TARGET_DIR=""
 
+# Muestra las opciones de actualización disponibles.
 usage() {
     cat <<'EOF'
 Uso: update_checkmk_plugins.sh [opciones] [opciones de ansible-playbook]
@@ -37,10 +48,12 @@ Ejemplos:
 EOF
 }
 
+# Impide nombres con separadores de ruta o caracteres peligrosos.
 valid_plugin_name() {
     [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]]
 }
 
+# Extrae opciones del script y conserva el resto para ansible-playbook.
 while (($#)); do
     case "$1" in
         --inventory|-i)
@@ -97,6 +110,7 @@ while (($#)); do
     esac
 done
 
+# Valida los ficheros y comandos necesarios.
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "Error: falta $ENV_FILE. Copia .env.example y completa sus valores." >&2
     exit 1
@@ -114,11 +128,13 @@ if ! command -v ansible-playbook >/dev/null || ! command -v ansible-galaxy >/dev
     exit 1
 fi
 
+# Exporta configuración y credenciales para el playbook.
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
 
+# Configura opcionalmente el usuario y la clave SSH remotos.
 if [[ -n "${ANSIBLE_REMOTE_USER:-}" ]]; then
     ANSIBLE_ARGS+=(--user "$ANSIBLE_REMOTE_USER")
 fi
@@ -126,11 +142,13 @@ if [[ -n "${ANSIBLE_PRIVATE_KEY_FILE:-}" ]]; then
     ANSIBLE_ARGS+=(--private-key "$ANSIBLE_PRIVATE_KEY_FILE")
 fi
 
+# Prepara la colección local utilizada por los hosts Windows y el entorno.
 if [[ ! -d "$COLLECTION_PATH" ]]; then
     echo "Instalando la colección local en $COLLECTIONS_PATH..." >&2
     ansible-galaxy collection install --force --collections-path "$COLLECTIONS_PATH" "$COLLECTION_SOURCE"
 fi
 
+# Construye las variables extra para modo manifiesto o modo explícito.
 EXTRA_VARS=(
     --extra-vars "plugin_manifest_file=$MANIFEST_FILE"
     --extra-vars "plugin_update_dry_run=$DRY_RUN"
@@ -148,6 +166,7 @@ if ((${#PLUGIN_NAMES[@]} > 0)); then
     fi
 fi
 
+# Ejecuta el playbook con los filtros y el modo seleccionados.
 export ANSIBLE_COLLECTIONS_PATH="$COLLECTIONS_PATH${ANSIBLE_COLLECTIONS_PATH:+:$ANSIBLE_COLLECTIONS_PATH}"
 exec ansible-playbook --inventory "$INVENTORY_FILE" "$PLAYBOOK_FILE" \
     "${EXTRA_VARS[@]}" "${ANSIBLE_ARGS[@]}"

@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # Genera un manifiesto YAML de plugins Checkmk instalados por host.
+#
+# Parámetros:
+#   --inventory/-i: inventario Ansible de entrada.
+#   --output: fichero YAML de salida.
+#   opciones adicionales de ansible-playbook: por ejemplo --limit.
+# Requisitos: .env, inventario generado, Ansible/ansible-galaxy y acceso SSH.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Rutas de configuración, entrada, salida y playbook.
 ENV_FILE="$ROOT_DIR/.env"
 INVENTORY_FILE="$ROOT_DIR/inventory/checkmk_hosts.yml"
 OUTPUT_FILE="$ROOT_DIR/inventory/checkmk_plugins.yml"
@@ -13,6 +20,7 @@ COLLECTIONS_PATH="$ROOT_DIR/.ansible/collections"
 COLLECTION_PATH="$COLLECTIONS_PATH/ansible_collections/checkmk/general"
 ANSIBLE_ARGS=()
 
+# Muestra la ayuda de uso del lanzador.
 usage() {
     cat <<'EOF'
 Uso: collect_checkmk_plugins.sh [--inventory RUTA|-i RUTA] [--output RUTA] [opciones de ansible-playbook]
@@ -24,6 +32,7 @@ Ejemplos:
 EOF
 }
 
+# Separa las opciones propias del lanzador de las opciones de Ansible.
 while (($#)); do
     case "$1" in
         --inventory|-i)
@@ -61,6 +70,7 @@ while (($#)); do
     esac
 done
 
+# Valida los ficheros y comandos necesarios antes de ejecutar Ansible.
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "Error: falta $ENV_FILE. Copia .env.example y completa sus valores." >&2
     exit 1
@@ -74,11 +84,13 @@ if ! command -v ansible-playbook >/dev/null || ! command -v ansible-galaxy >/dev
     exit 1
 fi
 
+# Exporta las variables del entorno para que el playbook pueda leerlas.
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
 
+# Aplica opcionalmente usuario y clave SSH alternativos.
 if [[ -n "${ANSIBLE_REMOTE_USER:-}" ]]; then
     ANSIBLE_ARGS+=(--user "$ANSIBLE_REMOTE_USER")
 fi
@@ -86,11 +98,13 @@ if [[ -n "${ANSIBLE_PRIVATE_KEY_FILE:-}" ]]; then
     ANSIBLE_ARGS+=(--private-key "$ANSIBLE_PRIVATE_KEY_FILE")
 fi
 
+# Instala la colección local en un directorio aislado si hace falta.
 if [[ ! -d "$COLLECTION_PATH" ]]; then
     echo "Instalando la colección local en $COLLECTIONS_PATH..." >&2
     ansible-galaxy collection install --force --collections-path "$COLLECTIONS_PATH" "$COLLECTION_SOURCE"
 fi
 
+# Ejecuta el playbook de descubrimiento con el inventario seleccionado.
 export ANSIBLE_COLLECTIONS_PATH="$COLLECTIONS_PATH${ANSIBLE_COLLECTIONS_PATH:+:$ANSIBLE_COLLECTIONS_PATH}"
 exec ansible-playbook --inventory "$INVENTORY_FILE" "$PLAYBOOK_FILE" \
     --extra-vars "plugin_manifest_output=$OUTPUT_FILE" "${ANSIBLE_ARGS[@]}"

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Genera un inventario YAML de Ansible a partir de hosts de Checkmk.
+"""Genera el inventario YAML de Ansible a partir de los hosts de Checkmk.
 
-Configuración: copia .env.example a .env y completa las variables CMK_*.
-No requiere dependencias Python externas.
+Parámetros:
+  ``--env-file``: fichero de configuración .env.
+  ``--output``: ruta del inventario generado.
+Requisitos: Python 3 y un .env con las variables CMK_*; no requiere dependencias externas.
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ def load_env(path: Path) -> dict[str, str]:
 
 
 def required(config: dict[str, str], name: str) -> str:
+    """Comprueba y devuelve una variable de configuración obligatoria."""
     value = config.get(name, "").strip()
     if not value:
         raise ValueError(f"Falta la variable obligatoria {name} en el fichero .env")
@@ -61,6 +64,7 @@ def required(config: dict[str, str], name: str) -> str:
 
 
 def api_url(config: dict[str, str]) -> str:
+    """Construye la URL de la API REST o usa CMK_API_URL si está definida."""
     if config.get("CMK_API_URL"):
         return config["CMK_API_URL"].rstrip("/")
     return "%s/%s/check_mk/api/1.0" % (
@@ -70,6 +74,7 @@ def api_url(config: dict[str, str]) -> str:
 
 
 def get_hosts(config: dict[str, str]) -> list[dict[str, Any]]:
+    """Consulta todos los hosts de Checkmk y devuelve su respuesta JSON."""
     query = urlencode(
         {
             "effective_attributes": "true",
@@ -110,13 +115,14 @@ def get_hosts(config: dict[str, str]) -> list[dict[str, Any]]:
 
 
 def attributes_for(host: dict[str, Any]) -> dict[str, Any]:
+    """Extrae los atributos efectivos del host desde la respuesta de la API."""
     extensions = host.get("extensions", {})
     attributes = extensions.get("attributes", {}) if isinstance(extensions, dict) else {}
     return attributes if isinstance(attributes, dict) else {}
 
 
 def group_name(value: Any, fallback: str) -> str:
-    """Normaliza valores de tags Checkmk como ansible_linux a linux."""
+    """Normaliza valores de tags, por ejemplo ansible_linux a linux."""
     normalized = str(value or "").strip().lower()
     if normalized.startswith("ansible_"):
         normalized = normalized[len("ansible_") :]
@@ -128,7 +134,7 @@ def group_name(value: Any, fallback: str) -> str:
 
 
 def host_groups(host: dict[str, Any], config: dict[str, str]) -> tuple[str, ...] | None:
-    """Obtiene grupos de todos los tags ansible de un host habilitado."""
+    """Obtiene los grupos de todos los tags de un host habilitado."""
     attributes = attributes_for(host)
     enable_attribute = config.get("CMK_ENABLE_ATTRIBUTE", "tag_ansible_enable")
     enable_value = config.get("CMK_ENABLE_VALUE", "ansible_enable")
@@ -144,16 +150,18 @@ def host_groups(host: dict[str, Any], config: dict[str, str]) -> tuple[str, ...]
 
 
 def host_ip(host: dict[str, Any]) -> str | None:
+    """Devuelve la dirección IP configurada para el host, si existe."""
     attributes = attributes_for(host)
     return attributes.get("ipaddress") or attributes.get("ipv6address")
 
 
 def yaml_string(value: Any) -> str:
-    """JSON es un subconjunto válido de YAML y conserva correctamente escapes."""
+    """Serializa una cadena como JSON, que también es YAML válido."""
     return json.dumps(str(value), ensure_ascii=False)
 
 
 def inventory_yaml(hosts: list[dict[str, Any]], config: dict[str, str]) -> str:
+    """Agrupa los hosts habilitados y compone el inventario YAML final."""
     groups: dict[str, list[tuple[str, str]]] = {}
     for host in hosts:
         name = host.get("id")
@@ -174,6 +182,7 @@ def inventory_yaml(hosts: list[dict[str, Any]], config: dict[str, str]) -> str:
 
 
 def main() -> int:
+    """Procesa argumentos, consulta Checkmk y escribe el inventario."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", type=Path, default=DEFAULT_ENV_FILE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

@@ -1,5 +1,11 @@
 ---
 # Actualiza agentes con el rol local checkmk.general.agent.
+#
+# Parámetros:
+#   --limit: selecciona grupos o hosts.
+#   -e: sobreescribe variables del rol.
+# Requisitos: Ansible, colección local, .env, inventario, conectividad SSH y
+# privilegios de elevación en los hosts.
 # La selección se realiza con --limit en el lanzador:
 #   --limit linux       --limit dev       --limit cmk1
 #   --limit 'linux:&dev' (intersección de grupos)
@@ -10,6 +16,7 @@
   collections:
     - checkmk.general
   vars:
+    # El servidor y las credenciales se toman del entorno cargado por el script.
     checkmk_agent_server_protocol: >-
       {{ lookup('ansible.builtin.env', 'CMK_URL') | urlsplit('scheme') }}
     checkmk_agent_server: >-
@@ -36,4 +43,5 @@
     checkmk_agent_update: false
     checkmk_agent_no_log: true
   roles:
+    # El rol descarga, instala y configura el agente para cada sistema operativo.
     - role: checkmk.general.agent

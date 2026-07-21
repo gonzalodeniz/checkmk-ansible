@@ -1,6 +1,12 @@
 ---
 # Recopila los plugins de agente instalados en cada host y crea un manifiesto
-# YAML en el controlador. Las rutas se pueden sobrescribir con -e.
+# YAML en el controlador.
+#
+# Parámetros:
+#   --limit: selecciona los hosts a explorar.
+#   -e: cambia las rutas o la salida del manifiesto.
+# Requisitos: Ansible, inventario, acceso SSH y las colecciones de Windows para
+# hosts Windows. Las rutas estándar se pueden sobrescribir con -e.
 - name: "Recopilar plugins instalados de Checkmk"
   hosts: all
   gather_facts: true
@@ -12,12 +18,14 @@
     checkmk_windows_plugin_paths:
       - C:\ProgramData\checkmk\agent\plugins
   tasks:
+    # Inicializa un resultado incluso para sistemas no soportados o inaccesibles.
     - name: "Inicializar resultado de plugins"
       ansible.builtin.set_fact:
         checkmk_plugin_scan_status: unsupported_os
         checkmk_plugin_scan_paths: []
         checkmk_installed_plugins: []
 
+    # Comprueba qué directorios Linux existen antes de buscar archivos.
     - name: "Linux: comprobar directorios de plugins"
       ansible.builtin.stat:
         path: "{{ item }}"
@@ -25,6 +33,7 @@
       register: __checkmk_linux_plugin_paths
       when: ansible_facts.system == 'Linux'
 
+    # Busca recursivamente archivos y calcula su checksum para el manifiesto.
     - name: "Linux: buscar plugins instalados"
       ansible.builtin.find:
         paths: >-
@@ -44,6 +53,7 @@
           | list
           | length > 0
 
+    # Reduce la respuesta de Ansible a los campos útiles para el consumidor.
     - name: "Linux: registrar plugins"
       ansible.builtin.set_fact:
         checkmk_plugin_scan_status: complete
@@ -66,6 +76,7 @@
           {{ plugins }}
       when: ansible_facts.system == 'Linux'
 
+    # Comprueba las rutas habituales del agente Windows.
     - name: "Windows: comprobar directorios de plugins"
       ansible.windows.win_stat:
         path: "{{ item }}"
@@ -73,6 +84,7 @@
       register: __checkmk_windows_plugin_paths
       when: ansible_facts.system == 'Win32NT'
 
+    # Busca archivos Windows y calcula sus checksums.
     - name: "Windows: buscar plugins instalados"
       ansible.windows.win_find:
         paths: >-
@@ -92,6 +104,7 @@
           | list
           | length > 0
 
+    # Normaliza los resultados Windows al mismo formato que Linux.
     - name: "Windows: registrar plugins"
       ansible.builtin.set_fact:
         checkmk_plugin_scan_status: complete
@@ -118,14 +131,17 @@
   hosts: localhost
   gather_facts: false
   vars:
+    # La salida se puede cambiar desde el lanzador con plugin_manifest_output.
     plugin_manifest_output: "{{ playbook_dir }}/../inventory/checkmk_plugins.yml"
   tasks:
+    # Asegura que la carpeta de salida existe en el controlador.
     - name: "Crear directorio de salida"
       ansible.builtin.file:
         path: "{{ plugin_manifest_output | dirname }}"
         state: directory
         mode: '0755'
 
+    # Serializa todos los resultados de host en un YAML consumible posteriormente.
     - name: "Escribir manifiesto de plugins"
       ansible.builtin.copy:
         dest: "{{ plugin_manifest_output }}"
