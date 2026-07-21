@@ -22,7 +22,6 @@ INVENTORY_FILE="$ROOT_DIR/inventory/checkmk_hosts.yml"
 PLAYBOOK_FILE="$ROOT_DIR/playbooks/update_checkmk_agents.yml"
 COLLECTION_SOURCE="$ROOT_DIR/ansible-collection-checkmk.general"
 COLLECTIONS_PATH="$ROOT_DIR/.ansible/collections"
-COLLECTION_PATH="$COLLECTIONS_PATH/ansible_collections/checkmk/general"
 ANSIBLE_ARGS=()
 
 # Muestra la ayuda y ejemplos del lanzador.
@@ -94,11 +93,9 @@ if [[ -n "${ANSIBLE_PRIVATE_KEY_FILE:-}" ]]; then
     ANSIBLE_ARGS+=(--private-key "$ANSIBLE_PRIVATE_KEY_FILE")
 fi
 
-# Instala la colección local si todavía no está disponible.
-if [[ ! -d "$COLLECTION_PATH" ]]; then
-    echo "Instalando la colección local en $COLLECTIONS_PATH..." >&2
-    ansible-galaxy collection install --force --collections-path "$COLLECTIONS_PATH" "$COLLECTION_SOURCE"
-fi
+# Sincroniza la colección local para que el playbook use siempre el código fuente actual.
+echo "Sincronizando la colección local en $COLLECTIONS_PATH..." >&2
+ansible-galaxy collection install --force --collections-path "$COLLECTIONS_PATH" "$COLLECTION_SOURCE"
 
 # Ejecuta el playbook con el inventario y filtros solicitados.
 export ANSIBLE_COLLECTIONS_PATH="$COLLECTIONS_PATH${ANSIBLE_COLLECTIONS_PATH:+:$ANSIBLE_COLLECTIONS_PATH}"
