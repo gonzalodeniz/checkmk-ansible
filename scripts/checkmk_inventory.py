@@ -168,7 +168,7 @@ def yaml_string(value: Any) -> str:
 
 def inventory_yaml(hosts: list[dict[str, Any]], config: dict[str, str]) -> str:
     """Agrupa los hosts habilitados y compone el inventario YAML final."""
-    groups: dict[str, list[tuple[str, str]]] = {}
+    groups: dict[str, list[str]] = {}
     for host in hosts:
         name = host.get("id")
         ip = host_ip(host)
@@ -176,13 +176,13 @@ def inventory_yaml(hosts: list[dict[str, Any]], config: dict[str, str]) -> str:
         if not isinstance(name, str) or not name or not ip or host_group_names is None:
             continue
         for group in host_group_names:
-            groups.setdefault(group, []).append((name, ip))
+            groups.setdefault(group, []).append(name)
 
     lines = ["# Generado por scripts/checkmk_inventory.py. No editar manualmente.", "all:", "  children:"]
     for group in sorted(groups):
         lines.extend((f"    {group}:", "      hosts:"))
-        for name, ip in sorted(groups[group]):
-            lines.extend((f"        {yaml_string(name)}:", f"          ansible_host: {yaml_string(ip)}"))
+        for name in sorted(groups[group]):
+            lines.append(f"        {yaml_string(name)}:")
     lines.append("")
     return "\n".join(lines)
 
