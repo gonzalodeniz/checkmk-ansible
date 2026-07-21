@@ -20,6 +20,8 @@ COLLECTION_PATH="$COLLECTIONS_PATH/ansible_collections/checkmk/general"
 REGISTER_MODE=""
 DRY_RUN=false
 ANSIBLE_ARGS=()
+CLI_REMOTE_USER=""
+CLI_PRIVATE_KEY_FILE=""
 
 # Muestra la ayuda de registro.
 usage() {
@@ -30,6 +32,8 @@ Opciones:
   --mode MODO          tls, update o both (por defecto, .env o tls).
   -i, --inventory RUTA Inventario alternativo.
   --dry-run            Muestra las acciones sin registrar agentes.
+  --user USUARIO       Usuario SSH remoto (prevalece sobre .env).
+  --private-key RUTA   Clave privada SSH (prevalece sobre .env).
 
 Ejemplos:
   scripts/register_checkmk_agents.sh --dry-run --limit linux
@@ -57,6 +61,24 @@ while (($#)); do
             ;;
         --inventory=*)
             INVENTORY_FILE="${1#*=}"
+            shift
+            ;;
+        --user|--remote-user)
+            (($# >= 2)) || { echo "Error: $1 requiere un usuario." >&2; exit 2; }
+            CLI_REMOTE_USER="$2"
+            shift 2
+            ;;
+        --user=*|--remote-user=*)
+            CLI_REMOTE_USER="${1#*=}"
+            shift
+            ;;
+        --private-key)
+            (($# >= 2)) || { echo "Error: --private-key requiere una ruta." >&2; exit 2; }
+            CLI_PRIVATE_KEY_FILE="$2"
+            shift 2
+            ;;
+        --private-key=*)
+            CLI_PRIVATE_KEY_FILE="${1#*=}"
             shift
             ;;
         --dry-run)
@@ -106,11 +128,13 @@ if [[ ! -d "$COLLECTION_PATH" ]]; then
 fi
 
 # Aplica identidad SSH alternativa configurada en .env.
-if [[ -n "${ANSIBLE_REMOTE_USER:-}" ]]; then
-    ANSIBLE_ARGS+=(--user "$ANSIBLE_REMOTE_USER")
+REMOTE_USER="${CLI_REMOTE_USER:-${ANSIBLE_REMOTE_USER:-}}"
+PRIVATE_KEY_FILE="${CLI_PRIVATE_KEY_FILE:-${ANSIBLE_PRIVATE_KEY_FILE:-}}"
+if [[ -n "$REMOTE_USER" ]]; then
+    ANSIBLE_ARGS+=(--user "$REMOTE_USER")
 fi
-if [[ -n "${ANSIBLE_PRIVATE_KEY_FILE:-}" ]]; then
-    ANSIBLE_ARGS+=(--private-key "$ANSIBLE_PRIVATE_KEY_FILE")
+if [[ -n "$PRIVATE_KEY_FILE" ]]; then
+    ANSIBLE_ARGS+=(--private-key "$PRIVATE_KEY_FILE")
 fi
 
 # Pasa el modo y la simulación al playbook.

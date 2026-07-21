@@ -76,4 +76,12 @@ ANSIBLE_PRIVATE_KEY_FILE=/ruta/absoluta/id_ed25519
 
 El lanzador traducirá esos valores a `--user` y `--private-key`. Si se dejan
 vacíos, Ansible usa su configuración SSH habitual. Una opción equivalente
-pasada explícitamente al script tiene prioridad.
+pasada explícitamente al script tiene prioridad:
+
+```bash
+scripts/update_checkmk_agents.sh --user usuario_remoto \
+  --private-key /ruta/absoluta/id_ed25519 --limit linux
+```
+
+Estas opciones están disponibles también en `register_checkmk_agents.sh`,
+`update_checkmk_plugins.sh` y `collect_checkmk_plugins.sh`.

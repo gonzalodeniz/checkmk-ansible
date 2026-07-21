@@ -19,11 +19,17 @@ COLLECTION_SOURCE="$ROOT_DIR/ansible-collection-checkmk.general"
 COLLECTIONS_PATH="$ROOT_DIR/.ansible/collections"
 COLLECTION_PATH="$COLLECTIONS_PATH/ansible_collections/checkmk/general"
 ANSIBLE_ARGS=()
+CLI_REMOTE_USER=""
+CLI_PRIVATE_KEY_FILE=""
 
 # Muestra la ayuda de uso del lanzador.
 usage() {
     cat <<'EOF'
 Uso: collect_checkmk_plugins.sh [--inventory RUTA|-i RUTA] [--output RUTA] [opciones de ansible-playbook]
+
+Opciones SSH:
+  --user USUARIO          Usuario SSH remoto (prevalece sobre .env).
+  --private-key RUTA      Clave privada SSH (prevalece sobre .env).
 
 Ejemplos:
   scripts/collect_checkmk_plugins.sh
@@ -59,6 +65,24 @@ while (($#)); do
             OUTPUT_FILE="${1#*=}"
             shift
             ;;
+        --user|--remote-user)
+            (($# >= 2)) || { echo "Error: $1 requiere un usuario." >&2; exit 2; }
+            CLI_REMOTE_USER="$2"
+            shift 2
+            ;;
+        --user=*|--remote-user=*)
+            CLI_REMOTE_USER="${1#*=}"
+            shift
+            ;;
+        --private-key)
+            (($# >= 2)) || { echo "Error: --private-key requiere una ruta." >&2; exit 2; }
+            CLI_PRIVATE_KEY_FILE="$2"
+            shift 2
+            ;;
+        --private-key=*)
+            CLI_PRIVATE_KEY_FILE="${1#*=}"
+            shift
+            ;;
         --help|-h)
             usage
             exit 0
@@ -91,11 +115,13 @@ source "$ENV_FILE"
 set +a
 
 # Aplica opcionalmente usuario y clave SSH alternativos.
-if [[ -n "${ANSIBLE_REMOTE_USER:-}" ]]; then
-    ANSIBLE_ARGS+=(--user "$ANSIBLE_REMOTE_USER")
+REMOTE_USER="${CLI_REMOTE_USER:-${ANSIBLE_REMOTE_USER:-}}"
+PRIVATE_KEY_FILE="${CLI_PRIVATE_KEY_FILE:-${ANSIBLE_PRIVATE_KEY_FILE:-}}"
+if [[ -n "$REMOTE_USER" ]]; then
+    ANSIBLE_ARGS+=(--user "$REMOTE_USER")
 fi
-if [[ -n "${ANSIBLE_PRIVATE_KEY_FILE:-}" ]]; then
-    ANSIBLE_ARGS+=(--private-key "$ANSIBLE_PRIVATE_KEY_FILE")
+if [[ -n "$PRIVATE_KEY_FILE" ]]; then
+    ANSIBLE_ARGS+=(--private-key "$PRIVATE_KEY_FILE")
 fi
 
 # Instala la colección local en un directorio aislado si hace falta.

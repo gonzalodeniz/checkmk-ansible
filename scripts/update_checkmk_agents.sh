@@ -3,6 +3,8 @@
 #
 # Parámetros:
 #   --inventory/-i: inventario Ansible alternativo.
+#   --user: usuario SSH remoto, prevalece sobre ANSIBLE_REMOTE_USER.
+#   --private-key: clave privada SSH, prevalece sobre ANSIBLE_PRIVATE_KEY_FILE.
 #   --help: muestra la ayuda.
 #   opciones de ansible-playbook: por ejemplo --limit.
 # Requisitos: .env, inventario, Ansible/ansible-galaxy, SSH y privilegios sudo.
@@ -23,13 +25,17 @@ PLAYBOOK_FILE="$ROOT_DIR/playbooks/update_checkmk_agents.yml"
 COLLECTION_SOURCE="$ROOT_DIR/ansible-collection-checkmk.general"
 COLLECTIONS_PATH="$ROOT_DIR/.ansible/collections"
 ANSIBLE_ARGS=()
+CLI_REMOTE_USER=""
+CLI_PRIVATE_KEY_FILE=""
 
 # Muestra la ayuda y ejemplos del lanzador.
 usage() {
     cat <<'EOF'
-Uso: update_checkmk_agents.sh [--inventory RUTA|-i RUTA] [opciones de ansible-playbook]
+Uso: update_checkmk_agents.sh [opciones] [opciones de ansible-playbook]
 
 Por defecto usa inventory/checkmk_hosts.yml. --inventory (o -i) lo sustituye.
+  --user USUARIO          Usuario SSH remoto (prevalece sobre .env).
+  --private-key RUTA      Clave privada SSH (prevalece sobre .env).
 Ejemplos:
   scripts/update_checkmk_agents.sh --limit linux
   scripts/update_checkmk_agents.sh -i /ruta/hosts.yml --limit cmk1
@@ -49,6 +55,24 @@ while (($#)); do
             ;;
         --inventory=*)
             INVENTORY_FILE="${1#*=}"
+            shift
+            ;;
+        --user|--remote-user)
+            (($# >= 2)) || { echo "Error: $1 requiere un usuario." >&2; exit 2; }
+            CLI_REMOTE_USER="$2"
+            shift 2
+            ;;
+        --user=*|--remote-user=*)
+            CLI_REMOTE_USER="${1#*=}"
+            shift
+            ;;
+        --private-key)
+            (($# >= 2)) || { echo "Error: --private-key requiere una ruta." >&2; exit 2; }
+            CLI_PRIVATE_KEY_FILE="$2"
+            shift 2
+            ;;
+        --private-key=*)
+            CLI_PRIVATE_KEY_FILE="${1#*=}"
             shift
             ;;
         --help|-h)
@@ -86,11 +110,13 @@ set +a
 # Solo imponer usuario/clave SSH cuando se han configurado explícitamente.
 # Al usar argumentos, una opción pasada manualmente al script puede sobrescribirlos.
 # Añade credenciales SSH alternativas solo cuando están configuradas.
-if [[ -n "${ANSIBLE_REMOTE_USER:-}" ]]; then
-    ANSIBLE_ARGS+=(--user "$ANSIBLE_REMOTE_USER")
+REMOTE_USER="${CLI_REMOTE_USER:-${ANSIBLE_REMOTE_USER:-}}"
+PRIVATE_KEY_FILE="${CLI_PRIVATE_KEY_FILE:-${ANSIBLE_PRIVATE_KEY_FILE:-}}"
+if [[ -n "$REMOTE_USER" ]]; then
+    ANSIBLE_ARGS+=(--user "$REMOTE_USER")
 fi
-if [[ -n "${ANSIBLE_PRIVATE_KEY_FILE:-}" ]]; then
-    ANSIBLE_ARGS+=(--private-key "$ANSIBLE_PRIVATE_KEY_FILE")
+if [[ -n "$PRIVATE_KEY_FILE" ]]; then
+    ANSIBLE_ARGS+=(--private-key "$PRIVATE_KEY_FILE")
 fi
 
 # Sincroniza la colección local para que el playbook use siempre el código fuente actual.
