@@ -94,6 +94,23 @@ while (($#)); do
     esac
 done
 
+# El playbook tiene un segundo play que escribe el manifiesto en el controlador
+# y se ejecuta sobre localhost. Cuando se usa --limit, Ansible aplica el límite
+# a todos los plays; incluye localhost para que ese segundo play no se omita.
+for ((i = 0; i < ${#ANSIBLE_ARGS[@]}; i++)); do
+    case "${ANSIBLE_ARGS[i]}" in
+        --limit|-l)
+            if ((i + 1 < ${#ANSIBLE_ARGS[@]})); then
+                ANSIBLE_ARGS[i + 1]="${ANSIBLE_ARGS[i + 1]}:localhost"
+                i=$((i + 1))
+            fi
+            ;;
+        --limit=*)
+            ANSIBLE_ARGS[i]="${ANSIBLE_ARGS[i]}:localhost"
+            ;;
+    esac
+done
+
 # Valida los ficheros y comandos necesarios antes de ejecutar Ansible.
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "Error: falta $ENV_FILE. Copia .env.example y completa sus valores." >&2
