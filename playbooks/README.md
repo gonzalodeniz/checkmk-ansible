@@ -81,6 +81,25 @@ scripts/update_checkmk_plugins.sh --plugin mk_logwatch.py --limit linux
 scripts/update_checkmk_plugins.sh --inventory /ruta/hosts.yml --manifest /ruta/plugins.yml --dry-run
 ```
 
+## Instalar un plugin individual
+
+El lanzador `scripts/install_checkmk_plugin.sh` descarga un plugin concreto
+desde el catálogo de Checkmk y lo instala en los hosts remotos con permisos de
+ejecución. Por defecto utiliza `/usr/lib/check_mk_agent/plugins`.
+
+```bash
+scripts/install_checkmk_plugin.sh --plugin mk_docker.py --limit linux
+scripts/install_checkmk_plugin.sh --plugin mk_apt.sh --limit docker-dev2.inerza.loc
+scripts/install_checkmk_plugin.sh --plugin mk_custom.py --source local \
+  --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
+scripts/install_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit linux
+scripts/install_checkmk_plugin.sh --plugin mk_docker.py --remove --limit linux
+```
+
+`--source` puede ser `auto`, `standard` o `local`. `--remove` borra el plugin
+de la ruta destino. El lanzador también admite `--inventory`, `--user`,
+`--private-key` y las opciones adicionales de `ansible-playbook`.
+
 ## Usuario y clave SSH alternativos
 
 El usuario que ejecuta el script no tiene que ser el usuario remoto. Define
@@ -101,4 +120,5 @@ scripts/update_checkmk_agents.sh --user usuario_remoto \
 ```
 
 Estas opciones están disponibles también en `register_checkmk_agents.sh`,
-`update_checkmk_plugins.sh` y `collect_checkmk_plugins.sh`.
+`update_checkmk_plugins.sh`, `collect_checkmk_plugins.sh`,
+`collect_host_inventory.sh` e `install_checkmk_plugin.sh`.

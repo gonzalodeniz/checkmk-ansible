@@ -119,6 +119,26 @@ scripts/update_checkmk_plugins.sh --plugin mk_mysql --plugin mk_logwatch.py --li
 scripts/update_checkmk_plugins.sh --inventory /ruta/hosts.yml --manifest /ruta/plugins.yml --dry-run
 ```
 
+### `scripts/install_checkmk_plugin.sh`
+
+Instala un único plugin de agente en los hosts remotos. Recibe el nombre del
+plugin, lo descarga desde el catálogo estándar o local de Checkmk y lo copia
+con permisos de ejecución (`0755`) en `/usr/lib/check_mk_agent/plugins`.
+
+```bash
+scripts/install_checkmk_plugin.sh --plugin mk_docker.py --limit linux
+scripts/install_checkmk_plugin.sh --plugin mk_apt.sh --limit docker-dev2.inerza.loc
+scripts/install_checkmk_plugin.sh --plugin mk_custom.py --source local \
+  --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
+scripts/install_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit linux
+scripts/install_checkmk_plugin.sh --plugin mk_docker.py --remove --limit linux
+```
+
+`--source` admite `auto` (valor predeterminado), `standard` o `local`.
+`--remove` borra el plugin de la ruta destino. También se pueden usar
+`--inventory`, `--user`, `--private-key` y las opciones adicionales de
+`ansible-playbook`.
+
 ## Configuración `.env`
 
 El fichero `.env` contiene secretos y no debe subirse al repositorio.

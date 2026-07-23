@@ -1,0 +1,158 @@
+---
+# Instala un único plugin de agente Checkmk desde el catálogo configurado.
+#
+# Variables:
+#   plugin_install_name: nombre del plugin.
+#   plugin_install_target_dir: directorio remoto de destino.
+#   plugin_install_source: auto, standard o local.
+#   plugin_install_remove: elimina el plugin en lugar de instalarlo.
+#   plugin_install_dry_run: simula sin modificar hosts.
+#   --limit: selecciona grupos o hosts.
+- name: "Instalar plugin Checkmk en hosts remotos"
+  hosts: all
+  become: true
+  any_errors_fatal: false
+  gather_facts: true
+  vars:
+    plugin_install_name: ''
+    plugin_install_target_dir: /usr/lib/check_mk_agent/plugins
+    plugin_install_source: auto
+    plugin_install_remove: false
+    plugin_install_dry_run: false
+    checkmk_plugin_standard_url: >-
+      {{ lookup('ansible.builtin.env', 'CMK_PLUGIN_STANDARD_URL')
+         | default(
+           lookup('ansible.builtin.env', 'CMK_URL') ~ '/'
+           ~ lookup('ansible.builtin.env', 'CMK_SITE') ~ '/check_mk/agents',
+           true) }}
+    checkmk_plugin_local_url: >-
+      {{ lookup('ansible.builtin.env', 'CMK_PLUGIN_LOCAL_URL')
+         | default(
+           lookup('ansible.builtin.env', 'CMK_URL') ~ '/'
+           ~ lookup('ansible.builtin.env', 'CMK_SITE') ~ '/check_mk/local/agents',
+           true) }}
+    checkmk_plugin_headers:
+      Authorization: >-
+        Bearer {{ lookup('ansible.builtin.env', 'CMK_USERNAME') }}
+        {{ lookup('ansible.builtin.env', 'CMK_PASSWORD') }}
+      Accept: application/octet-stream
+    checkmk_plugin_validate_certs: >-
+      {{ lookup('ansible.builtin.env', 'CMK_VERIFY_TLS') | default('true', true) | bool }}
+  pre_tasks:
+    - name: "Validar parámetros del plugin"
+      ansible.builtin.assert:
+        that:
+          - plugin_install_name | length > 0
+          - plugin_install_name is match('^[A-Za-z0-9._-]+$')
+          - plugin_install_source in ['auto', 'standard', 'local']
+        fail_msg: >-
+          Indica un nombre válido y un origen auto, standard o local.
+
+    - name: "Informar de la instalación simulada"
+      ansible.builtin.debug:
+        msg: >-
+          DRY RUN: se {% if plugin_install_remove | bool %}borraría{% else %}instalaría{% endif %}
+          {{ plugin_install_name }} {% if plugin_install_remove | bool %}de{% else %}en{% endif %}
+          {{ plugin_install_target_dir }}.
+      when: plugin_install_dry_run | bool
+
+    - name: "Crear directorio de plugins"
+      ansible.builtin.file:
+        path: "{{ plugin_install_target_dir }}"
+        state: directory
+        mode: '0755'
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+
+  tasks:
+    - name: "Descargar plugin estándar"
+      ansible.builtin.get_url:
+        url: "{{ checkmk_plugin_standard_url }}/plugins/{{ plugin_install_name }}"
+        dest: "/tmp/{{ plugin_install_name }}.checkmk-download"
+        headers: "{{ checkmk_plugin_headers }}"
+        validate_certs: "{{ checkmk_plugin_validate_certs }}"
+        force: true
+        mode: '0755'
+      register: __checkmk_standard_plugin_download
+      failed_when: false
+      no_log: true
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+        - plugin_install_source in ['auto', 'standard']
+
+    - name: "Descargar plugin local como alternativa"
+      ansible.builtin.get_url:
+        url: "{{ checkmk_plugin_local_url }}/plugins/{{ plugin_install_name }}"
+        dest: "/tmp/{{ plugin_install_name }}.checkmk-download"
+        headers: "{{ checkmk_plugin_headers }}"
+        validate_certs: "{{ checkmk_plugin_validate_certs }}"
+        force: true
+        mode: '0755'
+      register: __checkmk_local_plugin_download
+      failed_when: false
+      no_log: true
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+        - plugin_install_source == 'local' or
+          (plugin_install_source == 'auto' and
+           __checkmk_standard_plugin_download.failed | default(false))
+
+    - name: "Instalar plugin con permiso de ejecución"
+      ansible.builtin.copy:
+        src: "/tmp/{{ plugin_install_name }}.checkmk-download"
+        dest: "{{ plugin_install_target_dir }}/{{ plugin_install_name }}"
+        remote_src: true
+        mode: '0755'
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+        - (__checkmk_standard_plugin_download is defined and
+           not __checkmk_standard_plugin_download.failed | default(true)) or
+          (__checkmk_local_plugin_download is defined and
+           not __checkmk_local_plugin_download.failed | default(true))
+
+    - name: "Fallar si no se pudo descargar el plugin"
+      ansible.builtin.fail:
+        msg: >-
+          No se pudo descargar {{ plugin_install_name }} desde las rutas
+          configuradas de Checkmk.
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+        - (__checkmk_standard_plugin_download is not defined or
+           __checkmk_standard_plugin_download.failed | default(true))
+        - (__checkmk_local_plugin_download is not defined or
+           __checkmk_local_plugin_download.failed | default(true))
+
+    - name: "Eliminar descarga temporal"
+      ansible.builtin.file:
+        path: "/tmp/{{ plugin_install_name }}.checkmk-download"
+        state: absent
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+
+    - name: "Borrar plugin"
+      ansible.builtin.file:
+        path: "{{ plugin_install_target_dir }}/{{ plugin_install_name }}"
+        state: absent
+      when:
+        - ansible_facts.system == 'Linux'
+        - plugin_install_remove | bool
+        - not plugin_install_dry_run | bool
+
+    - name: "Rechazar sistemas no Linux"
+      ansible.builtin.fail:
+        msg: "La instalación de plugins con permisos de ejecución solo está implementada para Linux."
+      when:
+        - ansible_facts.system != 'Linux'
+        - not plugin_install_dry_run | bool
