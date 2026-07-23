@@ -78,7 +78,12 @@ posterior pueda decidir qué plugins debe actualizar.
 scripts/collect_checkmk_plugins.sh
 scripts/collect_checkmk_plugins.sh --limit linux
 scripts/collect_checkmk_plugins.sh --output /ruta/plugins.yml
+scripts/collect_checkmk_plugins.sh --update --limit linux
 ```
+
+Sin `--update`, el manifiesto se reemplaza y contiene únicamente los hosts del
+alcance seleccionado. Con `--update` se requiere `--limit`: solo se actualizan
+esos hosts y se conservan los demás hosts ya existentes en el manifiesto.
 
 ### `scripts/collect_host_inventory.sh`
 

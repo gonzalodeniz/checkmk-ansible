@@ -21,15 +21,18 @@ COLLECTION_PATH="$COLLECTIONS_PATH/ansible_collections/checkmk/general"
 ANSIBLE_ARGS=()
 CLI_REMOTE_USER=""
 CLI_PRIVATE_KEY_FILE=""
+UPDATE_MANIFEST=false
+LIMIT_SPECIFIED=false
 
 # Muestra la ayuda de uso del lanzador.
 usage() {
     cat <<'EOF'
-Uso: collect_checkmk_plugins.sh [--inventory RUTA|-i RUTA] [--output RUTA] [opciones de ansible-playbook]
+Uso: collect_checkmk_plugins.sh [--inventory RUTA|-i RUTA] [--output RUTA] [--update] [opciones de ansible-playbook]
 
 Opciones SSH:
   --user USUARIO          Usuario SSH remoto (prevalece sobre .env).
   --private-key RUTA      Clave privada SSH (prevalece sobre .env).
+  --update                Actualiza solo los hosts seleccionados por --limit.
 
 Ejemplos:
   scripts/collect_checkmk_plugins.sh
@@ -65,6 +68,10 @@ while (($#)); do
             OUTPUT_FILE="${1#*=}"
             shift
             ;;
+        --update)
+            UPDATE_MANIFEST=true
+            shift
+            ;;
         --user|--remote-user)
             (($# >= 2)) || { echo "Error: $1 requiere un usuario." >&2; exit 2; }
             CLI_REMOTE_USER="$2"
@@ -88,11 +95,19 @@ while (($#)); do
             exit 0
             ;;
         *)
+            if [[ "$1" == "--limit" || "$1" == "-l" || "$1" == --limit=* ]]; then
+                LIMIT_SPECIFIED=true
+            fi
             ANSIBLE_ARGS+=("$1")
             shift
             ;;
     esac
 done
+
+if [[ "$UPDATE_MANIFEST" == true && "$LIMIT_SPECIFIED" != true ]]; then
+    echo "Error: --update requiere --limit para indicar los hosts que se actualizarán." >&2
+    exit 2
+fi
 
 # El playbook tiene un segundo play que escribe el manifiesto en el controlador
 # y se ejecuta sobre localhost. Cuando se usa --limit, Ansible aplica el límite
@@ -152,4 +167,5 @@ export ANSIBLE_COLLECTIONS_PATH="$COLLECTIONS_PATH${ANSIBLE_COLLECTIONS_PATH:+:$
 # Añade el controlador al inventario para que el play de escritura siga siendo
 # seleccionable cuando se use --limit. El play de recopilación lo excluye.
 exec ansible-playbook --inventory "$INVENTORY_FILE" --inventory 'localhost,' "$PLAYBOOK_FILE" \
-    --extra-vars "plugin_manifest_output=$OUTPUT_FILE" "${ANSIBLE_ARGS[@]}"
+    --extra-vars "plugin_manifest_output=$OUTPUT_FILE" \
+    --extra-vars "plugin_manifest_update=$UPDATE_MANIFEST" "${ANSIBLE_ARGS[@]}"

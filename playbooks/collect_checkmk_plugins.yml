@@ -10,7 +10,20 @@
 - name: "Recopilar plugins instalados de Checkmk"
   hosts: all:!localhost
   any_errors_fatal: false
-  gather_facts: true
+  gather_facts: false
+  pre_tasks:
+    # Conserva en localhost el alcance real de Ansible antes de recopilar
+    # facts, incluidos los hosts que puedan resultar inaccesibles.
+    - name: "Registrar hosts seleccionados"
+      ansible.builtin.set_fact:
+        checkmk_plugin_selected_hosts: "{{ ansible_play_hosts_all | list }}"
+      delegate_to: localhost
+      delegate_facts: true
+      become: false
+      run_once: true
+
+    - name: "Recopilar facts del host"
+      ansible.builtin.setup:
   vars:
     checkmk_linux_plugin_paths:
       - /usr/lib/check_mk_agent/plugins
@@ -82,7 +95,7 @@
                  'path': file.path,
                  'checksum_sha256': file.checksum | default(''),
                  'size': file.size,
-                 'modified': file.mtime
+                 'modified': '%d-%m-%Y %H:00' | strftime(file.mtime | int)
                }) -%}
           {%- endfor -%}
           {{ plugins }}
@@ -133,15 +146,14 @@
                  'path': file.path,
                  'checksum_sha256': file.checksum | default(''),
                  'size': file.size,
-                 'modified': file.lastwritetime | default('')
+                 'modified': '%d-%m-%Y %H:00' | strftime(file.lastwritetime | int)
                }) -%}
           {%- endfor -%}
           {{ plugins }}
       when: ansible_facts.system | default('') == 'Win32NT'
 
-    # Solo los hosts que llegan hasta aquí se consideran recopilados con éxito.
-    # Un error o una conexión inalcanzable deja esta marca en false y el host
-    # se excluye del manifiesto del segundo play.
+    # Los hosts que llegan hasta aquí se consideran recopilados con éxito.
+    # Los que fallan se mantienen en el manifiesto con campos vacíos.
     - name: "Marcar host como recopilado"
       ansible.builtin.set_fact:
         checkmk_plugin_scan_ok: true
@@ -153,6 +165,7 @@
   vars:
     # La salida se puede cambiar desde el lanzador con plugin_manifest_output.
     plugin_manifest_output: "{{ playbook_dir }}/../inventory/checkmk_plugins.yml"
+    plugin_manifest_update: false
   tasks:
     # Asegura que la carpeta de salida existe en el controlador.
     - name: "Crear directorio de salida"
@@ -161,21 +174,60 @@
         state: directory
         mode: '0755'
 
-    # Serializa todos los resultados de host en un YAML consumible posteriormente.
+    - name: "Inicializar datos del manifiesto existente"
+      ansible.builtin.set_fact:
+        __checkmk_existing_manifest: {}
+        __checkmk_selected_hosts: >-
+          {{ hostvars['localhost'].checkmk_plugin_selected_hosts | default([]) }}
+
+    - name: "Comprobar manifiesto existente para actualización"
+      ansible.builtin.stat:
+        path: "{{ plugin_manifest_output }}"
+      register: __checkmk_existing_manifest_file
+      when: plugin_manifest_update | bool
+
+    - name: "Exigir manifiesto existente en modo actualización"
+      ansible.builtin.assert:
+        that: __checkmk_existing_manifest_file.stat.exists
+        fail_msg: >-
+          No existe {{ plugin_manifest_output }} para actualizarlo.
+      when: plugin_manifest_update | bool
+
+    - name: "Cargar manifiesto existente"
+      ansible.builtin.set_fact:
+        __checkmk_existing_manifest: >-
+          {{ lookup('ansible.builtin.file', plugin_manifest_output) | from_yaml }}
+      when: plugin_manifest_update | bool
+
+    - name: "Calcular hosts que se escribirán"
+      ansible.builtin.set_fact:
+        __checkmk_manifest_hosts: >-
+          {{ (((__checkmk_existing_manifest.hosts | default({})).keys() | list)
+              + __checkmk_selected_hosts) | unique | sort
+             if plugin_manifest_update | bool else __checkmk_selected_hosts | sort }}
+
+    - name: "Construir datos finales del manifiesto"
+      ansible.builtin.set_fact:
+        __checkmk_manifest_data: >-
+          {%- set output_hosts = {} -%}
+          {%- for host in __checkmk_manifest_hosts -%}
+          {%-   if host in __checkmk_selected_hosts -%}
+          {%-     set host_data = {
+                   'scan_status': hostvars[host].checkmk_plugin_scan_status | default(''),
+                   'system': (hostvars[host].ansible_facts | default({})).get('system', ''),
+                   'scan_paths': hostvars[host].checkmk_plugin_scan_paths | default([]),
+                   'plugins': hostvars[host].checkmk_installed_plugins | default([])
+                 } -%}
+          {%-   else -%}
+          {%-     set host_data = (__checkmk_existing_manifest.hosts | default({})).get(host, {}) -%}
+          {%-   endif -%}
+          {%-   set _ = output_hosts.update({host: host_data}) -%}
+          {%- endfor -%}
+          {{ {'schema_version': 1, 'hosts': output_hosts} }}
+
+    # Serializa todos los hosts; los que fallaron usan valores vacíos.
     - name: "Escribir manifiesto de plugins"
       ansible.builtin.copy:
         dest: "{{ plugin_manifest_output }}"
         mode: '0600'
-        content: |-
-          schema_version: 1
-          hosts:
-          {% for host in groups['all'] | sort %}
-          {% if hostvars[host].checkmk_plugin_scan_ok | default(false) | bool %}
-            {{ host | to_json }}:
-              scan_status: {{ hostvars[host].checkmk_plugin_scan_status | to_json }}
-              system: {{ (hostvars[host].ansible_facts | default({})).get('system', 'unknown') | to_json }}
-              scan_paths: {{ hostvars[host].checkmk_plugin_scan_paths | to_json }}
-              plugins:
-          {{ hostvars[host].checkmk_installed_plugins | to_nice_yaml(indent=2, sort_keys=false) | indent(8, true) }}
-          {% endif %}
-          {% endfor %}
+        content: "{{ __checkmk_manifest_data | to_nice_yaml(indent=2, sort_keys=false) }}"
