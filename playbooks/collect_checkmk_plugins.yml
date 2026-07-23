@@ -8,9 +8,9 @@
 # Requisitos: Ansible, inventario, acceso SSH y las colecciones de Windows para
 # hosts Windows. Las rutas estándar se pueden sobrescribir con -e.
 - name: "Recopilar plugins instalados de Checkmk"
-  hosts: all
+  hosts: all:!localhost
+  any_errors_fatal: false
   gather_facts: true
-  ignore_unreachable: true
   vars:
     checkmk_linux_plugin_paths:
       - /usr/lib/check_mk_agent/plugins
@@ -18,9 +18,10 @@
     checkmk_windows_plugin_paths:
       - C:\ProgramData\checkmk\agent\plugins
   tasks:
-    # Inicializa un resultado incluso para sistemas no soportados o inaccesibles.
+    # Inicializa un resultado para sistemas no soportados.
     - name: "Inicializar resultado de plugins"
       ansible.builtin.set_fact:
+        checkmk_plugin_scan_ok: false
         checkmk_plugin_scan_status: unsupported_os
         checkmk_plugin_scan_paths: []
         checkmk_installed_plugins: []
@@ -31,7 +32,7 @@
         path: "{{ item }}"
       loop: "{{ checkmk_linux_plugin_paths }}"
       register: __checkmk_linux_plugin_paths
-      when: ansible_facts.system == 'Linux'
+      when: ansible_facts.system | default('') == 'Linux'
 
     # Busca recursivamente archivos y calcula su checksum para el manifiesto.
     - name: "Linux: buscar plugins instalados"
@@ -43,15 +44,25 @@
              | list }}
         file_type: file
         recurse: true
-        get_checksum: true
-        checksum_algorithm: sha256
+        get_checksum: false
       register: __checkmk_linux_plugins
       when:
-        - ansible_facts.system == 'Linux'
+        - ansible_facts.system | default('') == 'Linux'
         - __checkmk_linux_plugin_paths.results
           | selectattr('stat.exists')
           | list
           | length > 0
+
+    # Ansible Core 2.16 no permite elegir el algoritmo de checksum en find.
+    # stat sí admite SHA-256, por lo que conserva el formato del manifiesto.
+    - name: "Linux: calcular checksums SHA-256 de los plugins"
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        get_checksum: true
+        checksum_algorithm: sha256
+      loop: "{{ __checkmk_linux_plugins.files | default([]) }}"
+      register: __checkmk_linux_plugin_checksums
+      when: ansible_facts.system | default('') == 'Linux'
 
     # Reduce la respuesta de Ansible a los campos útiles para el consumidor.
     - name: "Linux: registrar plugins"
@@ -64,7 +75,8 @@
              | list }}
         checkmk_installed_plugins: >-
           {%- set plugins = [] -%}
-          {%- for file in __checkmk_linux_plugins.files | default([]) -%}
+          {%- for result in __checkmk_linux_plugin_checksums.results | default([]) -%}
+          {%-   set file = result.stat -%}
           {%-   set _ = plugins.append({
                  'name': file.path | basename,
                  'path': file.path,
@@ -74,7 +86,7 @@
                }) -%}
           {%- endfor -%}
           {{ plugins }}
-      when: ansible_facts.system == 'Linux'
+      when: ansible_facts.system | default('') == 'Linux'
 
     # Comprueba las rutas habituales del agente Windows.
     - name: "Windows: comprobar directorios de plugins"
@@ -82,7 +94,7 @@
         path: "{{ item }}"
       loop: "{{ checkmk_windows_plugin_paths }}"
       register: __checkmk_windows_plugin_paths
-      when: ansible_facts.system == 'Win32NT'
+      when: ansible_facts.system | default('') == 'Win32NT'
 
     # Busca archivos Windows y calcula sus checksums.
     - name: "Windows: buscar plugins instalados"
@@ -98,7 +110,7 @@
         checksum_algorithm: sha256
       register: __checkmk_windows_plugins
       when:
-        - ansible_facts.system == 'Win32NT'
+        - ansible_facts.system | default('') == 'Win32NT'
         - __checkmk_windows_plugin_paths.results
           | selectattr('stat.exists')
           | list
@@ -125,10 +137,18 @@
                }) -%}
           {%- endfor -%}
           {{ plugins }}
-      when: ansible_facts.system == 'Win32NT'
+      when: ansible_facts.system | default('') == 'Win32NT'
+
+    # Solo los hosts que llegan hasta aquí se consideran recopilados con éxito.
+    # Un error o una conexión inalcanzable deja esta marca en false y el host
+    # se excluye del manifiesto del segundo play.
+    - name: "Marcar host como recopilado"
+      ansible.builtin.set_fact:
+        checkmk_plugin_scan_ok: true
 
 - name: "Guardar manifiesto de plugins en el controlador"
   hosts: localhost
+  connection: local
   gather_facts: false
   vars:
     # La salida se puede cambiar desde el lanzador con plugin_manifest_output.
@@ -150,10 +170,12 @@
           schema_version: 1
           hosts:
           {% for host in groups['all'] | sort %}
+          {% if hostvars[host].checkmk_plugin_scan_ok | default(false) | bool %}
             {{ host | to_json }}:
-              scan_status: {{ hostvars[host].checkmk_plugin_scan_status | default('unreachable') | to_json }}
+              scan_status: {{ hostvars[host].checkmk_plugin_scan_status | to_json }}
               system: {{ (hostvars[host].ansible_facts | default({})).get('system', 'unknown') | to_json }}
-              scan_paths: {{ hostvars[host].checkmk_plugin_scan_paths | default([]) | to_json }}
+              scan_paths: {{ hostvars[host].checkmk_plugin_scan_paths | to_json }}
               plugins:
-          {{ hostvars[host].checkmk_installed_plugins | default([]) | to_nice_yaml(indent=2, sort_keys=false) | indent(8, true) }}
+          {{ hostvars[host].checkmk_installed_plugins | to_nice_yaml(indent=2, sort_keys=false) | indent(8, true) }}
+          {% endif %}
           {% endfor %}

@@ -149,5 +149,7 @@ fi
 
 # Ejecuta el playbook de descubrimiento con el inventario seleccionado.
 export ANSIBLE_COLLECTIONS_PATH="$COLLECTIONS_PATH${ANSIBLE_COLLECTIONS_PATH:+:$ANSIBLE_COLLECTIONS_PATH}"
-exec ansible-playbook --inventory "$INVENTORY_FILE" "$PLAYBOOK_FILE" \
+# Añade el controlador al inventario para que el play de escritura siga siendo
+# seleccionable cuando se use --limit. El play de recopilación lo excluye.
+exec ansible-playbook --inventory "$INVENTORY_FILE" --inventory 'localhost,' "$PLAYBOOK_FILE" \
     --extra-vars "plugin_manifest_output=$OUTPUT_FILE" "${ANSIBLE_ARGS[@]}"
