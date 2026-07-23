@@ -1,0 +1,55 @@
+---
+# Recopila el sistema operativo y Python de cada host y crea un inventario YAML
+# en el controlador.
+#
+# Parámetros:
+#   --limit: selecciona los hosts a explorar.
+#   -e host_inventory_output=RUTA: cambia la salida del inventario.
+# Requisitos: Ansible, inventario y acceso SSH.
+- name: "Recopilar inventario de sistemas remotos"
+  hosts: all:!localhost
+  any_errors_fatal: false
+  gather_facts: true
+  tasks:
+    # Los hosts que no llegan a esta tarea se mantienen en la salida con campos
+    # vacíos, usando valores por defecto en el segundo play.
+    - name: "Registrar inventario del host"
+      ansible.builtin.set_fact:
+        checkmk_host_inventory_system: "{{ ansible_facts.system | default('unknown') }}"
+        checkmk_host_inventory_operating_system: >-
+          {{ ansible_facts.distribution
+             | default(ansible_facts.os_name | default(ansible_facts.system | default('unknown'))) }}
+        checkmk_host_inventory_operating_system_version: >-
+          {{ ansible_facts.distribution_version
+             | default(ansible_facts.os_version | default('unknown')) }}
+        checkmk_host_inventory_python_version: "{{ ansible_python_version | default('unknown') }}"
+
+- name: "Guardar inventario de sistemas en el controlador"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    host_inventory_output: "{{ playbook_dir }}/../inventory/host_inventory.yml"
+  tasks:
+    - name: "Crear directorio de salida"
+      ansible.builtin.file:
+        path: "{{ host_inventory_output | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: "Escribir inventario de sistemas"
+      ansible.builtin.copy:
+        dest: "{{ host_inventory_output }}"
+        mode: '0600'
+        content: |-
+          schema_version: 1
+          hosts:
+          {% for host in groups['all'] | sort %}
+          {% if host != 'localhost' %}
+            {{ host | to_json }}:
+              system: {{ hostvars[host].checkmk_host_inventory_system | default('') | to_json }}
+              operating_system: {{ hostvars[host].checkmk_host_inventory_operating_system | default('') | to_json }}
+              operating_system_version: {{ hostvars[host].checkmk_host_inventory_operating_system_version | default('') | to_json }}
+              python_version: {{ hostvars[host].checkmk_host_inventory_python_version | default('') | to_json }}
+          {% endif %}
+          {% endfor %}

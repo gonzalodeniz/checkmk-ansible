@@ -10,6 +10,7 @@ ansible-collection-checkmk.general/
 # Artefactos generados por el inventario y Ansible
 inventory/checkmk_hosts.yml
 inventory/checkmk_plugins.yml
+inventory/host_inventory.yml
 *.retry
 *.tar.gz
 
