@@ -131,13 +131,23 @@ scripts/install_checkmk_plugin.sh --plugin mk_apt.sh --limit docker-dev2.inerza.
 scripts/install_checkmk_plugin.sh --plugin mk_custom.py --source local \
   --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
 scripts/install_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit linux
-scripts/install_checkmk_plugin.sh --plugin mk_docker.py --remove --limit linux
 ```
 
 `--source` admite `auto` (valor predeterminado), `standard` o `local`.
-`--remove` borra el plugin de la ruta destino. También se pueden usar
-`--inventory`, `--user`, `--private-key` y las opciones adicionales de
-`ansible-playbook`.
+También se pueden usar `--inventory`, `--user`, `--private-key` y las opciones
+adicionales de `ansible-playbook`.
+
+### `scripts/remove_checkmk_plugin.sh`
+
+Borra un único plugin de los hosts remotos. Por defecto utiliza
+`/usr/lib/check_mk_agent/plugins` y admite `--target-dir` para cambiar la ruta.
+
+```bash
+scripts/remove_checkmk_plugin.sh --plugin mk_docker.py --limit linux
+scripts/remove_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit dev
+scripts/remove_checkmk_plugin.sh --plugin mk_custom.py \
+  --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
+```
 
 ## Configuración `.env`
 

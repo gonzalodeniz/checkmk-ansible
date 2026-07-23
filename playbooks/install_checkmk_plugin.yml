@@ -5,7 +5,6 @@
 #   plugin_install_name: nombre del plugin.
 #   plugin_install_target_dir: directorio remoto de destino.
 #   plugin_install_source: auto, standard o local.
-#   plugin_install_remove: elimina el plugin en lugar de instalarlo.
 #   plugin_install_dry_run: simula sin modificar hosts.
 #   --limit: selecciona grupos o hosts.
 - name: "Instalar plugin Checkmk en hosts remotos"
@@ -17,7 +16,6 @@
     plugin_install_name: ''
     plugin_install_target_dir: /usr/lib/check_mk_agent/plugins
     plugin_install_source: auto
-    plugin_install_remove: false
     plugin_install_dry_run: false
     checkmk_plugin_standard_url: >-
       {{ lookup('ansible.builtin.env', 'CMK_PLUGIN_STANDARD_URL')
@@ -51,8 +49,7 @@
     - name: "Informar de la instalación simulada"
       ansible.builtin.debug:
         msg: >-
-          DRY RUN: se {% if plugin_install_remove | bool %}borraría{% else %}instalaría{% endif %}
-          {{ plugin_install_name }} {% if plugin_install_remove | bool %}de{% else %}en{% endif %}
+          DRY RUN: se instalaría {{ plugin_install_name }} en
           {{ plugin_install_target_dir }}.
       when: plugin_install_dry_run | bool
 
@@ -63,7 +60,6 @@
         mode: '0755'
       when:
         - ansible_facts.system == 'Linux'
-        - not plugin_install_remove | bool
         - not plugin_install_dry_run | bool
 
   tasks:
@@ -80,7 +76,6 @@
       no_log: true
       when:
         - ansible_facts.system == 'Linux'
-        - not plugin_install_remove | bool
         - not plugin_install_dry_run | bool
         - plugin_install_source in ['auto', 'standard']
 
@@ -97,7 +92,6 @@
       no_log: true
       when:
         - ansible_facts.system == 'Linux'
-        - not plugin_install_remove | bool
         - not plugin_install_dry_run | bool
         - plugin_install_source == 'local' or
           (plugin_install_source == 'auto' and
@@ -111,7 +105,6 @@
         mode: '0755'
       when:
         - ansible_facts.system == 'Linux'
-        - not plugin_install_remove | bool
         - not plugin_install_dry_run | bool
         - (__checkmk_standard_plugin_download is defined and
            not __checkmk_standard_plugin_download.failed | default(true)) or
@@ -125,7 +118,6 @@
           configuradas de Checkmk.
       when:
         - ansible_facts.system == 'Linux'
-        - not plugin_install_remove | bool
         - not plugin_install_dry_run | bool
         - (__checkmk_standard_plugin_download is not defined or
            __checkmk_standard_plugin_download.failed | default(true))
@@ -138,16 +130,6 @@
         state: absent
       when:
         - ansible_facts.system == 'Linux'
-        - not plugin_install_remove | bool
-        - not plugin_install_dry_run | bool
-
-    - name: "Borrar plugin"
-      ansible.builtin.file:
-        path: "{{ plugin_install_target_dir }}/{{ plugin_install_name }}"
-        state: absent
-      when:
-        - ansible_facts.system == 'Linux'
-        - plugin_install_remove | bool
         - not plugin_install_dry_run | bool
 
     - name: "Rechazar sistemas no Linux"

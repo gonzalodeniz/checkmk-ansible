@@ -1,0 +1,47 @@
+---
+# Elimina un único plugin de agente Checkmk de los hosts remotos.
+#
+# Variables:
+#   plugin_remove_name: nombre del plugin.
+#   plugin_remove_target_dir: directorio remoto de plugins.
+#   plugin_remove_dry_run: simula sin modificar hosts.
+#   --limit: selecciona grupos o hosts.
+- name: "Borrar plugin Checkmk de hosts remotos"
+  hosts: all
+  become: true
+  any_errors_fatal: false
+  gather_facts: true
+  vars:
+    plugin_remove_name: ''
+    plugin_remove_target_dir: /usr/lib/check_mk_agent/plugins
+    plugin_remove_dry_run: false
+  pre_tasks:
+    - name: "Validar nombre del plugin"
+      ansible.builtin.assert:
+        that:
+          - plugin_remove_name | length > 0
+          - plugin_remove_name is match('^[A-Za-z0-9._-]+$')
+        fail_msg: "Indica un nombre de plugin válido con --plugin."
+
+    - name: "Informar del borrado simulado"
+      ansible.builtin.debug:
+        msg: >-
+          DRY RUN: se borraría {{ plugin_remove_name }} de
+          {{ plugin_remove_target_dir }}.
+      when: plugin_remove_dry_run | bool
+
+  tasks:
+    - name: "Borrar plugin"
+      ansible.builtin.file:
+        path: "{{ plugin_remove_target_dir }}/{{ plugin_remove_name }}"
+        state: absent
+      when:
+        - ansible_facts.system == 'Linux'
+        - not plugin_remove_dry_run | bool
+
+    - name: "Rechazar sistemas no Linux"
+      ansible.builtin.fail:
+        msg: "El borrado de plugins está implementado para Linux."
+      when:
+        - ansible_facts.system != 'Linux'
+        - not plugin_remove_dry_run | bool

@@ -1,39 +1,34 @@
 #!/usr/bin/env bash
-# Instala un único plugin de agente Checkmk en los hosts seleccionados.
+# Elimina un único plugin de agente Checkmk de los hosts seleccionados.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/.env"
 INVENTORY_FILE="$ROOT_DIR/inventory/checkmk_hosts.yml"
-PLAYBOOK_FILE="$ROOT_DIR/playbooks/install_checkmk_plugin.yml"
-COLLECTION_SOURCE="$ROOT_DIR/ansible-collection-checkmk.general"
-COLLECTIONS_PATH="$ROOT_DIR/.ansible/collections"
-COLLECTION_PATH="$COLLECTIONS_PATH/ansible_collections/checkmk/general"
+PLAYBOOK_FILE="$ROOT_DIR/playbooks/remove_checkmk_plugin.yml"
 PLUGIN_NAME=""
 TARGET_DIR="/usr/lib/check_mk_agent/plugins"
-PLUGIN_SOURCE="auto"
 ANSIBLE_ARGS=()
 CLI_REMOTE_USER=""
 CLI_PRIVATE_KEY_FILE=""
 
 usage() {
     cat <<'EOF'
-Uso: install_checkmk_plugin.sh --plugin NOMBRE [opciones] [opciones de ansible-playbook]
+Uso: remove_checkmk_plugin.sh --plugin NOMBRE [opciones] [opciones de ansible-playbook]
 
 Opciones:
-  -p, --plugin NOMBRE   Nombre del plugin que se instalará (obligatorio).
+  -p, --plugin NOMBRE   Nombre del plugin que se borrará (obligatorio).
   -i, --inventory RUTA  Inventario Ansible alternativo.
       --target-dir RUTA Directorio remoto de plugins.
-      --source ORIGEN    auto, standard o local (por defecto: auto).
-      --dry-run          Simula la instalación sin modificar los hosts.
+      --dry-run          Simula el borrado sin modificar los hosts.
       --user USUARIO     Usuario SSH remoto (prevalece sobre .env).
       --private-key RUTA Clave privada SSH (prevalece sobre .env).
 
 Ejemplos:
-  scripts/install_checkmk_plugin.sh --plugin mk_docker.py --limit linux
-  scripts/install_checkmk_plugin.sh --plugin mk_apt.sh --limit docker-dev2.inerza.loc
-  scripts/install_checkmk_plugin.sh --plugin mk_foo --source local --target-dir /usr/local/lib/check_mk_agent/plugins
+  scripts/remove_checkmk_plugin.sh --plugin mk_docker.py --limit linux
+  scripts/remove_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit dev
+  scripts/remove_checkmk_plugin.sh --plugin mk_custom.py --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
 EOF
 }
 
@@ -70,17 +65,8 @@ while (($#)); do
             TARGET_DIR="${1#*=}"
             shift
             ;;
-        --source)
-            (($# >= 2)) || { echo "Error: --source requiere un origen." >&2; exit 2; }
-            PLUGIN_SOURCE="$2"
-            shift 2
-            ;;
-        --source=*)
-            PLUGIN_SOURCE="${1#*=}"
-            shift
-            ;;
         --dry-run)
-            ANSIBLE_ARGS+=(--extra-vars plugin_install_dry_run=true)
+            ANSIBLE_ARGS+=(--extra-vars plugin_remove_dry_run=true)
             shift
             ;;
         --user|--remote-user)
@@ -116,10 +102,6 @@ if [[ -z "$PLUGIN_NAME" ]] || ! valid_plugin_name "$PLUGIN_NAME"; then
     echo "Error: indica un nombre de plugin válido con --plugin." >&2
     exit 2
 fi
-if [[ ! "$PLUGIN_SOURCE" =~ ^(auto|standard|local)$ ]]; then
-    echo "Error: --source debe ser auto, standard o local." >&2
-    exit 2
-fi
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "Error: falta $ENV_FILE. Copia .env.example y completa sus valores." >&2
     exit 1
@@ -128,8 +110,8 @@ if [[ ! -f "$INVENTORY_FILE" ]]; then
     echo "Error: falta $INVENTORY_FILE. Ejecuta scripts/checkmk_inventory.py primero." >&2
     exit 1
 fi
-if ! command -v ansible-playbook >/dev/null || ! command -v ansible-galaxy >/dev/null; then
-    echo "Error: instala Ansible y ansible-galaxy en el controlador." >&2
+if ! command -v ansible-playbook >/dev/null; then
+    echo "Error: instala Ansible en el controlador." >&2
     exit 1
 fi
 
@@ -147,14 +129,7 @@ if [[ -n "$PRIVATE_KEY_FILE" ]]; then
     ANSIBLE_ARGS+=(--private-key "$PRIVATE_KEY_FILE")
 fi
 
-if [[ ! -d "$COLLECTION_PATH" ]]; then
-    echo "Instalando la colección local en $COLLECTIONS_PATH..." >&2
-    ansible-galaxy collection install --force --collections-path "$COLLECTIONS_PATH" "$COLLECTION_SOURCE"
-fi
-
-export ANSIBLE_COLLECTIONS_PATH="$COLLECTIONS_PATH${ANSIBLE_COLLECTIONS_PATH:+:$ANSIBLE_COLLECTIONS_PATH}"
 exec ansible-playbook --inventory "$INVENTORY_FILE" "$PLAYBOOK_FILE" \
-    --extra-vars "plugin_install_name=$PLUGIN_NAME" \
-    --extra-vars "plugin_install_target_dir=$TARGET_DIR" \
-    --extra-vars "plugin_install_source=$PLUGIN_SOURCE" \
+    --extra-vars "plugin_remove_name=$PLUGIN_NAME" \
+    --extra-vars "plugin_remove_target_dir=$TARGET_DIR" \
     "${ANSIBLE_ARGS[@]}"

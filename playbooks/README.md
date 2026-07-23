@@ -93,12 +93,23 @@ scripts/install_checkmk_plugin.sh --plugin mk_apt.sh --limit docker-dev2.inerza.
 scripts/install_checkmk_plugin.sh --plugin mk_custom.py --source local \
   --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
 scripts/install_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit linux
-scripts/install_checkmk_plugin.sh --plugin mk_docker.py --remove --limit linux
 ```
 
-`--source` puede ser `auto`, `standard` o `local`. `--remove` borra el plugin
-de la ruta destino. El lanzador también admite `--inventory`, `--user`,
-`--private-key` y las opciones adicionales de `ansible-playbook`.
+`--source` puede ser `auto`, `standard` o `local`. El lanzador también admite
+`--inventory`, `--user`, `--private-key` y las opciones adicionales de
+`ansible-playbook`.
+
+## Borrar un plugin individual
+
+El lanzador `scripts/remove_checkmk_plugin.sh` elimina un plugin concreto de
+los hosts remotos. Por defecto utiliza `/usr/lib/check_mk_agent/plugins`.
+
+```bash
+scripts/remove_checkmk_plugin.sh --plugin mk_docker.py --limit linux
+scripts/remove_checkmk_plugin.sh --plugin mk_docker.py --dry-run --limit dev
+scripts/remove_checkmk_plugin.sh --plugin mk_custom.py \
+  --target-dir /usr/local/lib/check_mk_agent/plugins --limit dev
+```
 
 ## Usuario y clave SSH alternativos
 
@@ -121,4 +132,5 @@ scripts/update_checkmk_agents.sh --user usuario_remoto \
 
 Estas opciones están disponibles también en `register_checkmk_agents.sh`,
 `update_checkmk_plugins.sh`, `collect_checkmk_plugins.sh`,
-`collect_host_inventory.sh` e `install_checkmk_plugin.sh`.
+`collect_host_inventory.sh`, `install_checkmk_plugin.sh` y
+`remove_checkmk_plugin.sh`.
