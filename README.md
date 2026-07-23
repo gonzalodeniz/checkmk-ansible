@@ -80,6 +80,24 @@ scripts/collect_checkmk_plugins.sh --limit linux
 scripts/collect_checkmk_plugins.sh --output /ruta/plugins.yml
 ```
 
+### `scripts/collect_host_inventory.sh`
+
+Recopila información básica de los hosts remotos y genera
+`inventory/host_inventory.yml`. Para cada host incluye el sistema detectado,
+el sistema operativo, su versión y la versión de Python. Los hosts que no
+responden o cuyos facts no se pueden obtener permanecen en el inventario con
+los campos vacíos.
+
+```bash
+scripts/collect_host_inventory.sh
+scripts/collect_host_inventory.sh --limit linux
+scripts/collect_host_inventory.sh --inventory /ruta/hosts.yml --output /tmp/host_inventory.yml
+scripts/collect_host_inventory.sh --user usuario --private-key /ruta/id_ed25519 --limit dev
+```
+
+El lanzador admite las opciones adicionales de `ansible-playbook`, como
+`--limit`, `--list-hosts`, `--check` y variables `-e`.
+
 ### `scripts/update_checkmk_plugins.sh`
 
 Actualiza los plugins incluidos en `inventory/checkmk_plugins.yml` desde el
@@ -126,8 +144,9 @@ grupos `linux` y `dev`. Un host puede pertenecer a varios grupos.
 
 ## Inventarios y seguridad
 
-`inventory/checkmk_hosts.yml` y `inventory/checkmk_plugins.yml` son artefactos
-generados y están excluidos de Git.
+`inventory/checkmk_hosts.yml`, `inventory/checkmk_plugins.yml` y
+`inventory/host_inventory.yml` son artefactos generados y están excluidos de
+Git.
 Si se utiliza un inventario alternativo, debe ser legible por Ansible y contener
 los grupos/hosts que se quieran actualizar. No compartas `.env`, claves
 privadas ni contraseñas.

@@ -50,6 +50,23 @@ scripts/collect_checkmk_plugins.sh --limit linux
 scripts/collect_checkmk_plugins.sh --output /ruta/plugins.yml
 ```
 
+## Recopilar inventario de sistemas remotos
+
+El lanzador `scripts/collect_host_inventory.sh` obtiene los facts básicos de
+los hosts remotos y genera `inventory/host_inventory.yml`. El resultado
+incluye el sistema, el sistema operativo, su versión y la versión de Python.
+Los hosts que fallan se conservan con esos campos vacíos.
+
+```bash
+scripts/collect_host_inventory.sh
+scripts/collect_host_inventory.sh --limit linux
+scripts/collect_host_inventory.sh --inventory /ruta/hosts.yml --output /tmp/host_inventory.yml
+scripts/collect_host_inventory.sh --user usuario --private-key /ruta/id_ed25519 --limit dev
+```
+
+También acepta las opciones adicionales de `ansible-playbook`, como
+`--list-hosts`, `--check` y variables `-e`.
+
 ## Actualizar plugins
 
 `scripts/update_checkmk_plugins.sh` descarga plugins desde Checkmk y los copia
