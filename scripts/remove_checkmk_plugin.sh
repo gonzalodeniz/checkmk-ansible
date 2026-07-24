@@ -8,6 +8,8 @@ ENV_FILE="$ROOT_DIR/.env"
 INVENTORY_FILE="$ROOT_DIR/inventory/checkmk_hosts.yml"
 PLAYBOOK_FILE="$ROOT_DIR/playbooks/remove_checkmk_plugin.yml"
 PLUGIN_NAME=""
+LIMIT_VALUE=""
+LIMIT_SPECIFIED=0
 TARGET_DIR="/usr/lib/check_mk_agent/plugins"
 ANSIBLE_ARGS=()
 CLI_REMOTE_USER=""
@@ -15,10 +17,11 @@ CLI_PRIVATE_KEY_FILE=""
 
 usage() {
     cat <<'EOF'
-Uso: remove_checkmk_plugin.sh --plugin NOMBRE [opciones] [opciones de ansible-playbook]
+Uso: remove_checkmk_plugin.sh --plugin NOMBRE --limit PATRÓN [opciones] [opciones de ansible-playbook]
 
 Opciones:
   -p, --plugin NOMBRE   Nombre del plugin que se borrará (obligatorio).
+      --limit PATRÓN    Hosts sobre los que se ejecutará la operación (obligatorio).
   -i, --inventory RUTA  Inventario Ansible alternativo.
       --target-dir RUTA Directorio remoto de plugins.
       --dry-run          Simula el borrado sin modificar los hosts.
@@ -45,6 +48,17 @@ while (($#)); do
             ;;
         --plugin=*)
             PLUGIN_NAME="${1#*=}"
+            shift
+            ;;
+        --limit)
+            (($# >= 2)) || { echo "Error: --limit requiere un patrón de hosts." >&2; exit 2; }
+            LIMIT_VALUE="$2"
+            LIMIT_SPECIFIED=1
+            shift 2
+            ;;
+        --limit=*)
+            LIMIT_VALUE="${1#*=}"
+            LIMIT_SPECIFIED=1
             shift
             ;;
         --inventory|-i)
@@ -102,6 +116,10 @@ if [[ -z "$PLUGIN_NAME" ]] || ! valid_plugin_name "$PLUGIN_NAME"; then
     echo "Error: indica un nombre de plugin válido con --plugin." >&2
     exit 2
 fi
+if (( ! LIMIT_SPECIFIED )) || [[ -z "$LIMIT_VALUE" ]]; then
+    echo "Error: indica un patrón de hosts válido con --limit." >&2
+    exit 2
+fi
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "Error: falta $ENV_FILE. Copia .env.example y completa sus valores." >&2
     exit 1
@@ -128,6 +146,7 @@ fi
 if [[ -n "$PRIVATE_KEY_FILE" ]]; then
     ANSIBLE_ARGS+=(--private-key "$PRIVATE_KEY_FILE")
 fi
+ANSIBLE_ARGS+=(--limit "$LIMIT_VALUE")
 
 exec ansible-playbook --inventory "$INVENTORY_FILE" "$PLAYBOOK_FILE" \
     --extra-vars "plugin_remove_name=$PLUGIN_NAME" \
